@@ -1,5 +1,6 @@
 import tflearn
 import tensorflow as tf 
+import os , cv2
 
 from config import strFolderName
 from tflearn.data_utils import image_preloader
@@ -9,10 +10,12 @@ from tflearn.layers.core import input_data , dropout , fully_connected
 from tflearn.layers.conv import conv_2d , max_pool_2d ,upsample_2d
 
 def load_data():
-    # train , target = "./data/{}/target".format(strFolderName) , "./data/{}/target".format(strFolderName)
-    # target = image_preloader(target,image_shape=(240,320,3),mode='folder', categorical_labels=False)
-    source = image_preloader("./data/train/".format(strFolderName) ,image_shape=(240,320,3),mode='folder')
-    return source
+    train_dir , target_dir = "./data/{}/target".format(strFolderName) , "./data/{}/train".format(strFolderName)
+    train , target = os.listdir(train_dir), os.listdir(target_dir)
+    train , target = [ cv2.imread(os.path.join(train_dir ,img),-1) for img in train ] ,\
+                 [ cv2.imread(os.path.join(target_dir,img),-1) for img in target]
+    return train , target
+    
 
 def autoencoder(input_shape):
     # MNIST autoencoder 
@@ -35,13 +38,8 @@ def autoencoder(input_shape):
     return network
 
 def conv_autoencoder(input_shape):
-    img_prep = ImagePreprocessing()
-    img_prep.add_featurewise_zero_center()
-    img_prep.add_featurewise_stdnorm()
-
     with tf.name_scope("Encoder"):
-        encoder = input_data(shape=(None, input_shape[0] , input_shape[1] , input_shape[2]),
-                            data_preprocessing=img_prep)
+        encoder = input_data(shape=(None, input_shape[0] , input_shape[1] , input_shape[2]))
         
         encoder = conv_2d(encoder ,16,7,activation='relu')
         encoder = dropout(encoder , .25 )# replacible for noisy input 
@@ -52,7 +50,6 @@ def conv_autoencoder(input_shape):
         
         encoder = conv_2d(encoder,8,7,activation='relu')
         encoder = max_pool_2d(encoder , 2)
-
     with tf.name_scope('Decoder'):
         decoder = conv_2d(encoder, 8, 7, activation='relu')
         decoder = upsample_2d(decoder, 2)
@@ -67,7 +64,7 @@ def conv_autoencoder(input_shape):
     model = tflearn.regression( decoder , optimizer='adam' , 
                         loss='binary_crossentropy',
                         learning_rate=.005)
-    model = tflearn.DNN(model,tensorboard_verbose=2 )
+    model = tflearn.DNN(model,tensorboard_verbose=3,tensorboard_dir="./log")
     return model 
 
 def GAN(input_shape):
@@ -75,5 +72,8 @@ def GAN(input_shape):
 
 if __name__ == "__main__":
     model = conv_autoencoder((240,320,3))
-    X, _ = load_data()
+    X, y = load_data()
+    model.fit(X,y,n_epoch=100,shuffle=True , show_metric=True,
+                batch_size=50, validation_set=0.1, snapshot_epoch=True,
+                run_id='selfie_conv_autoencoder')
 
