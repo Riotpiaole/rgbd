@@ -1,9 +1,18 @@
 import tflearn
 import tensorflow as tf 
+
+from config import strFolderName
+from tflearn.data_utils import image_preloader
+from tflearn.data_preprocessing import ImagePreprocessing 
+from tflearn.data_augmentation import ImageAugmentation
 from tflearn.layers.core import input_data , dropout , fully_connected 
-from tflearn.layers.conv import conv_2d , max_pool_2d
+from tflearn.layers.conv import conv_2d , max_pool_2d ,upsample_2d
 
-
+def load_data():
+    # train , target = "./data/{}/target".format(strFolderName) , "./data/{}/target".format(strFolderName)
+    # target = image_preloader(target,image_shape=(240,320,3),mode='folder', categorical_labels=False)
+    source = image_preloader("./data/train/".format(strFolderName) ,image_shape=(240,320,3),mode='folder')
+    return source
 
 def autoencoder(input_shape):
     # MNIST autoencoder 
@@ -55,11 +64,16 @@ def conv_autoencoder(input_shape):
         decoder = upsample_2d(decoder, 2)
         decoder = conv_2d(decoder, 3, 7)
 
-    model = regression( decoder , optimizer='adam' , 
+    model = tflearn.regression( decoder , optimizer='adam' , 
                         loss='binary_crossentropy',
                         learning_rate=.005)
     model = tflearn.DNN(model,tensorboard_verbose=2 )
     return model 
 
 def GAN(input_shape):
-    with tf.variable_scope('Generator')
+    pass 
+
+if __name__ == "__main__":
+    model = conv_autoencoder((240,320,3))
+    X, _ = load_data()
+
