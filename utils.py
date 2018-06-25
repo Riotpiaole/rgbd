@@ -126,8 +126,8 @@ def showImageSet(imgs,names,destroy=True ):
         cv2.imshow(n , img)
 
     key = cv2.waitKey( 0 )& 0xFF 
-    if destroy:
-        if key == ord( 'q' ):cv2.destroyAllWindows() 
+    if key == ord('q'):
+        cv2.destroyAllWindows()
 
 def check(arr):
     print("checking ",np.mean(arr) , np.max(arr) , np.min(arr))
