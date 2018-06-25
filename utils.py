@@ -135,7 +135,16 @@ def check(arr):
 from  time import time 
 from functools import wraps
 
-def timeit(log_info=None):
+def ms_to_hr_mins(t_taken):
+    millis = int(millis)
+    seconds=(millis/1000)%60
+    seconds = int(seconds)
+    minutes=(millis/(1000*60))%60
+    minutes = int(minutes)
+    hours=(millis/(1000*60*60))%24
+    return "{}hr{}min and {}s".format(hours,minutes,seconds)
+
+def timeit(log_info=None,flag=False):
     def wrapper( func ):
         @wraps( func )
         def inner_wrapper( *args , **kwargs ):
@@ -143,8 +152,10 @@ def timeit(log_info=None):
             result = func( *args , **kwargs) # recalling the function 
             end = time() 
             time_taken =  round (end - start ,2)
-            if log_info:print ( "{} elapsed time: {} ms".format(log_info,time_taken ))
-            else:print ( "elapsed time: {} ms".format(round (end - start ,2) ))
+            if log_info and not flag:print ( "{} elapsed time: {} ms".format(log_info,time_taken ))
+            elif not log_info and not flag:print ( "elapsed time: {} ms".format(time_taken ))
+            elif not log_info and flag:print("elapsed time: {}".format(ms_to_hr_mins(time_taken)))
+            else: print("{} elapsed time: {}".format(log_info,ms_to_hr_mins(time_taken)))
             return result 
         return inner_wrapper
     return wrapper
