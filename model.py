@@ -85,26 +85,26 @@ def GAN(input_shape):
 
 
 #TODO add test image code 
-# if __name__ == "__main__":
-#     X, y = load_data()
-#     rand_img_id = 0 
-#     X_test , y_test = X[ rand_img_id ] , y[ rand_img_id ]
-#     model = conv_autoencoder((240,320,3))
-#     model.load("./model/selfie_conv_autoencoder/convauto.ckpt")
-#     X_pred = model.predict(np.array([X_test]))[0]
-#     X_pred = image.array_to_img(X_pred )
-#     X_pred.save("./output.jpg")
+if __name__ == "__main__":
+    X, y = load_data()
+    rand_img_id = 0 
+    X_test , y_test = X[ rand_img_id ] , y[ rand_img_id ]
+    model = conv_autoencoder((240,320,3))
+    model.load("./model/selfie_conv_autoencoder/convauto.ckpt")
+    X_pred = model.predict(np.array([X_test]))[0]
+    X_pred = image.array_to_img(X_pred )
+    X_pred.save("./output.jpg")
     
-#     toShow = [ X_test , X_pred , y_test ]
-#     toShowName = [ "source" , "pred" , "target"]
-#     check(X_pred)
+    # toShow = [ X_test , X_pred , y_test ]
+    # toShowName = [ "source" , "pred" , "target"]
+    # check(X_pred)
     # showImageSet(toShow , toShowName)
 
-if __name__ == "__main__":
-    model = conv_autoencoder((240,320,3))
-    X, y = load_data()
-    model.load("./model/selfie_conv_autoencoder/convauto.ckpt")
-    model.fit(X,y,n_epoch=2000, shuffle=True , show_metric=True,
-                batch_size=10, validation_set=0.1,
-                run_id='selfie_conv_autoencoder')
-    model.save("./model/selfie_conv_autoencoder/convauto.ckpt")
+# if __name__ == "__main__":
+#     model = conv_autoencoder((240,320,3))
+#     X, y = load_data()
+#     model.load("./model/selfie_conv_autoencoder/convauto.ckpt")
+#     model.fit(X,y,n_epoch=2000, shuffle=True , show_metric=True,
+#                 batch_size=10, validation_set=0.1,
+#                 run_id='selfie_conv_autoencoder')
+#     model.save("./model/selfie_conv_autoencoder/convauto.ckpt")
