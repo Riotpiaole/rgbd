@@ -6,6 +6,7 @@ import os
 import sys
 import time
 import numpy as np
+import h5py
 from keras.utils import generic_utils 
 from keras.optimizers import Adam, SGD
 import keras.backend as K
@@ -16,9 +17,9 @@ sys.path.append("../")
 def l1_loss(y_true , y_pred):
     return K.sum( K.abs( y_pred  - y_true), axis=-1)
 
-class DeepConv_Image_Translation(Model):
+class  K_DCGAN(Model):
     def __init__( self  ,flag = "upsample" , epoch=10):
-        Model.__init__(self,"Deep_Conv_Image_Translation","DCGAN")
+        Model.__init__(self,"K_DCGAN","DCGAN")
         self.image_dim = [256,256,3]
         self.patch_size = [64,64]
         self.batch_size = 4
@@ -53,6 +54,15 @@ class DeepConv_Image_Translation(Model):
         self.discriminator.compile(loss="binary_crossentropy",optimizer=opt_discriminator)        
     
     def save(self):
+        if not os.path.exists(self.model_path):
+            path = self.model_path.split("/")
+            
+            os.mkdir(path[0]+"/"+path[1]+"/"+path[2])
+            os.mkdir(self.model_path)
+            h5py.File(self.gen_weights_path)
+            h5py.File(self.disc_weights_path)
+            h5py.File(self.DCGAN_weights_path)
+        
         self.generator.save_weights( self.gen_weights_path, overwrite=True)
         self.discriminator.save_weights( self.disc_weights_path , overwrite=True)
         self.DCGAN_model.save_weights(self.DCGAN_weights_path,overwrite=True)
@@ -98,7 +108,7 @@ class DeepConv_Image_Translation(Model):
                                                     ("Generator tot", gen_loss[0]),
                                                     ("Generator L1 loss", gen_loss[1]),
                                                     ("Generator logloss", gen_loss[2])])
-
+                    self.save()
                     if batch_counter >= n_batch_per_epoch:
                         break
                 print("")
@@ -110,7 +120,7 @@ class DeepConv_Image_Translation(Model):
             self.save()
 
 if __name__ == "__main__":
-    model = DeepConv_Image_Translation()
+    model = K_DCGAN()
     model.train()
 
         

@@ -45,7 +45,7 @@ class Model(object):
     def __init__(self,name,save_name):
         self.name = name
         self.save_name = save_name
-        self.model_path = "../log/model/"+self.name+"/"+self.save_name
+        self.model_path = "../log/"+self.name+"/"+self.save_name
         self.model_dir = "../data/"+strFolderName
         self.target_dir  , self.train_dir = self.model_dir+"/target" , self.model_dir+"/train" 
         self.data = {}
