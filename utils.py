@@ -7,7 +7,11 @@ import numpy as np
 
 import math
 import random
-import re , cv2 
+import re , cv2 , sys
+
+
+def break_point():
+    sys.exit(0)
 
 def chunks(l, n):
     """ Yield successive n-sized chunks from l. """
@@ -114,7 +118,7 @@ def split_folder(inputPath, outputPath, nFolders):
 
         print_text_progress_bar((i+1)/len(blocks))
     print()
-            
+             
 def showImage(img,name="Output_Image"):
     cv2.imshow(name,img)
     key = cv2.waitKey( 0 )& 0xFF 
