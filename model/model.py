@@ -17,16 +17,17 @@ from tflearn.layers.conv import conv_2d , max_pool_2d ,upsample_2d
 from keras.preprocessing import image
 
 def bgr_to_rgb(img):
-    b , g , r =  np.dsplit((img))
+    b , g , r =  np.dsplit((img),3)
     return np.dstack((r,g,b))
 
 def rgb_to_bgr(img):
-    r , g , b = np.dsplit((img))
+    r , g , b = np.dsplit((img),3)
     return np.dstack((b,g,r))
 
 def read_img(filedir,name):
     img = cv2.imread(os.path.join(filedir,name),-1).astype(np.float64)
     resize_img = cv2.resize(img,(256,256) )
+    resize_img = bgr_to_rgb(resize_img)
     return keras_utils_layers.normalization(resize_img)
 
 def extract_patches(X , patch_size):
@@ -54,8 +55,8 @@ class data_model(object):
     def load_data(self):
         train, target= os.listdir(self.train_dir), os.listdir(self.target_dir)
         # load all of the images
-        self.data['X'] = [ read_img(self.train_dir,img ) for img in train ]
-        self.data['y'] = [ read_img(self.target_dir,img ) for img in target ]
+        self.data['y'] = [ read_img(self.train_dir,img ) for img in train ]
+        self.data['X'] = [ read_img(self.target_dir,img ) for img in target ]
         num_of_sample = math.floor(.2 * len(self.data['X'])) # 20 % of validation sample 
         self.validation= { 'X': np.array(self.data['X'][:num_of_sample]) , 'y':np.array(self.data['y'][:num_of_sample])}
         self.data['X'] = np.array(self.data['X'][num_of_sample:])
@@ -95,10 +96,11 @@ class data_model(object):
 
     def gen_batch(self, batch_size , validation=False): 
         while True:
-            idx = np.random.choice(len(self.data['X']),batch_size ,replace=False)
             if not validation:
+                idx = np.random.choice(len(self.data['X']),batch_size ,replace=False)
                 yield  self.data['X'][idx] , self.data['y'][idx]
             else: 
+                idx = np.random.choice(len(self.validation['X']),batch_size ,replace=False)
                 yield  self.validation['X'][idx] , self.validation['y'][idx]
 
     def build(self,input_shape):

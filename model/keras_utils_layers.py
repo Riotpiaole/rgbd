@@ -335,13 +335,13 @@ def plot_generated_batch(X_full, X_sketch, generator_model, batch_size, image_da
     X_sketch = inverse_normalization(X_sketch)
     X_full = inverse_normalization(X_full)
     X_gen = inverse_normalization(X_gen)
-
+    
     Xs = X_sketch[:8]
     Xg = X_gen[:8]
     Xr = X_full[:8]
 
     if image_data_format == "channels_last":
-        X = np.concatenate((Xs, Xg, Xr), axis=0)
+        X = np.concatenate((Xs, Xg, Xr), axis=0)        
         list_rows = []
         for i in range(int(X.shape[0] // 4)):
             Xr = np.concatenate([X[k] for k in range(4 * i, 4 * (i + 1))], axis=1)
@@ -358,11 +358,10 @@ def plot_generated_batch(X_full, X_sketch, generator_model, batch_size, image_da
 
         Xr = np.concatenate(list_rows, axis=1)
         Xr = Xr.transpose(1,2,0)
-
     if Xr.shape[-1] == 1:
         plt.imshow(Xr[:, :, 0], cmap="gray")
     else:
-        plt.imshow(Xr)
+        plt.imshow(Xr)     
     plt.axis("off")
     plt.savefig("../figures/current_batch_%s.png" % suffix)
     plt.clf()

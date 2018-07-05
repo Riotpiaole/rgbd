@@ -20,7 +20,7 @@ def l1_loss(y_true , y_pred):
     return K.sum( K.abs( y_pred  - y_true), axis=-1)
 
 class  K_DCGAN(data_model):
-    def __init__( self  ,flag = "upsample" , epoch=10):
+    def __init__( self  ,flag = "upsample" , epoch=100000):
         data_model.__init__(self,"K_DCGAN","DCGAN")
         self.image_dim = [256,256,3]
         self.patch_size = [64,64]
@@ -75,7 +75,7 @@ class  K_DCGAN(data_model):
         self.discriminator.load_weights(self.disc_weights_path)
         self.DCGAN_model.load_weights(self.DCGAN_weights_path)
 
-    @timeit(log_info="Training pix2pix" ,flag=True)
+    @timeit(log_info="Training pix2pix")
     def train(self , label_smoothing=False,retrain=False):
         gen_loss, disc_loss  = 100 , 100
         e_ptr = 0
@@ -118,10 +118,9 @@ class  K_DCGAN(data_model):
                                                     ("G logloss", gen_loss[2])])
                     if batch_counter % (n_batch_per_epoch / 2) == 0:
                         # Get new images from validation
-                        plot_generated_batch(X, y, self.generator,self.batch_size, "channel last", "training")
+                        plot_generated_batch(X, y, self.generator,self.batch_size, "channels_last", "training")
                         X_test, y_test = next(self.gen_batch(self.batch_size , validation=True))
-                        plot_generated_batch(X_test, y_test, self.generator,
-                                                        self.batch_size, self.batch_size, "validation")
+                        plot_generated_batch(X_test, y_test, self.generator,self.batch_size, "channels_last", "validation")
 
                     if batch_counter >= n_batch_per_epoch:
                         break
@@ -140,6 +139,6 @@ class  K_DCGAN(data_model):
 
 if __name__ == "__main__":
     model = K_DCGAN()
-    model.train(retrain=False)
+    model.train(retrain=True)
 
         

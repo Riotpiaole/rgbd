@@ -140,12 +140,10 @@ from  time import time
 from functools import wraps
 
 def ms_to_hr_mins(t_taken):
-    millis = int(t_taken)
-    seconds=(millis/1000)%60
-    seconds = int(seconds)
-    minutes=(millis/(1000*60))%60
-    minutes = int(minutes)
-    hours=(millis/(1000*60*60))%24
+    t_taken = int(t_taken)
+    seconds=(t_taken/1000)%60
+    minutes=(t_taken/(1000*60))%60
+    hours=(t_taken/(1000*60*60))%24
     return "{}hr{}min and {}s".format(hours,minutes,seconds)
 
 def timeit(log_info=None,flag=False):
@@ -167,6 +165,4 @@ def timeit(log_info=None,flag=False):
 def check_folders(folder_paths):
     for path in folder_paths:
         if not os.path.exists(path):os.mkdir(path)
-
-
 
