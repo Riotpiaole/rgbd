@@ -140,7 +140,7 @@ from  time import time
 from functools import wraps
 
 def ms_to_hr_mins(t_taken):
-    millis = int(millis)
+    millis = int(t_taken)
     seconds=(millis/1000)%60
     seconds = int(seconds)
     minutes=(millis/(1000*60))%60

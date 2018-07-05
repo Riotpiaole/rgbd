@@ -9,8 +9,15 @@ import keras.backend as K
 import numpy as np
 import sys , os 
 from model import extract_patches
-
+import matplotlib.pyplot as plt
 sys.path.insert(0,"..")
+def normalization(X):
+    
+    return X / 127.5 - 1
+
+def inverse_normalization(X):
+    
+    return (X + 1.) / 2.
 
 def minb_disc(x):
     diffs = K.expand_dims(x, 3) - K.expand_dims(K.permute_dimensions(x, [1, 2, 0]), 0)
@@ -110,13 +117,13 @@ def generator_unet_upsampling(img_dim, bn_mode, model_name="generator_unet_upsam
 
 def generator_unet_deconv(img_dim, bn_mode, batch_size, model_name="generator_unet_deconv"):
 
-    assert K.backend() == "tensorflow", "Not implemented with theano backend"
-
+    assert K.backend(extract_patches) == "tensorflow", "Not implemented with theano backend"
+    
     nb_filters = 64
     bn_axis = -1
     h, w, nb_channels = img_dim
     min_s = min(img_dim[:-1])
-    
+
     unet_input = Input(shape=img_dim, name="unet_input")
 
     # Prepare encoder filters
@@ -318,3 +325,45 @@ def gen_batch(X1, X2, batch_size):
     while True:
         idx = np.random.choice(X1.shape[0], batch_size, replace=False)
         yield X1[idx], X2[idx]
+
+
+def plot_generated_batch(X_full, X_sketch, generator_model, batch_size, image_data_format, suffix):
+
+    # Generate images
+    X_gen = generator_model.predict(X_sketch)
+
+    X_sketch = inverse_normalization(X_sketch)
+    X_full = inverse_normalization(X_full)
+    X_gen = inverse_normalization(X_gen)
+
+    Xs = X_sketch[:8]
+    Xg = X_gen[:8]
+    Xr = X_full[:8]
+
+    if image_data_format == "channels_last":
+        X = np.concatenate((Xs, Xg, Xr), axis=0)
+        list_rows = []
+        for i in range(int(X.shape[0] // 4)):
+            Xr = np.concatenate([X[k] for k in range(4 * i, 4 * (i + 1))], axis=1)
+            list_rows.append(Xr)
+
+        Xr = np.concatenate(list_rows, axis=0)
+
+    if image_data_format == "channels_first":
+        X = np.concatenate((Xs, Xg, Xr), axis=0)
+        list_rows = []
+        for i in range(int(X.shape[0] // 4)):
+            Xr = np.concatenate([X[k] for k in range(4 * i, 4 * (i + 1))], axis=2)
+            list_rows.append(Xr)
+
+        Xr = np.concatenate(list_rows, axis=1)
+        Xr = Xr.transpose(1,2,0)
+
+    if Xr.shape[-1] == 1:
+        plt.imshow(Xr[:, :, 0], cmap="gray")
+    else:
+        plt.imshow(Xr)
+    plt.axis("off")
+    plt.savefig("../figures/current_batch_%s.png" % suffix)
+    plt.clf()
+    plt.close()

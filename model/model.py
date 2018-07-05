@@ -8,7 +8,7 @@ sys.path.insert(0,"..")
 
 from utils import *
 from config import strFolderName
-
+import keras_utils_layers
 from tflearn.data_utils import image_preloader
 from tflearn.data_preprocessing import ImagePreprocessing 
 from tflearn.data_augmentation import ImageAugmentation
@@ -27,7 +27,7 @@ def rgb_to_bgr(img):
 def read_img(filedir,name):
     img = cv2.imread(os.path.join(filedir,name),-1).astype(np.float64)
     resize_img = cv2.resize(img,(256,256) )
-    return  resize_img
+    return keras_utils_layers.normalization(resize_img)
 
 def extract_patches(X , patch_size):
     list_X = []
@@ -41,7 +41,7 @@ def extract_patches(X , patch_size):
     return list_X
 
 
-class Model(object):
+class data_model(object):
     def __init__(self,name,save_name):
         self.name = name
         self.save_name = save_name

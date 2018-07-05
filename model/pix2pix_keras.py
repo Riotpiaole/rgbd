@@ -1,28 +1,30 @@
 from keras_utils_layers import generator_unet_deconv , generator_unet_upsampling # Generator 
 from keras_utils_layers import DCGAN , DCGAN_discriminator # Discriminator 
 from keras_utils_layers import get_nb_patch
-
+from keras.models import model_from_json
 import os
 import sys
-import time
+from time import time 
 import numpy as np
 import h5py
 from keras.utils import generic_utils 
 from keras.optimizers import Adam, SGD
 import keras.backend as K
-from model import Model
+from model import data_model
+from utils import *
 
+from keras_utils_layers import *
 sys.path.append("../")
 
 def l1_loss(y_true , y_pred):
     return K.sum( K.abs( y_pred  - y_true), axis=-1)
 
-class  K_DCGAN(Model):
+class  K_DCGAN(data_model):
     def __init__( self  ,flag = "upsample" , epoch=10):
-        Model.__init__(self,"K_DCGAN","DCGAN")
+        data_model.__init__(self,"K_DCGAN","DCGAN")
         self.image_dim = [256,256,3]
         self.patch_size = [64,64]
-        self.batch_size = 4
+        self.batch_size = 2
         self.nb_epoch = epoch
         self.build(self.image_dim)
         self.disc_weights_path = os.path.join(self.model_path , "disc_weight_epoch.h5") 
@@ -67,28 +69,33 @@ class  K_DCGAN(Model):
         self.discriminator.save_weights( self.disc_weights_path , overwrite=True)
         self.DCGAN_model.save_weights(self.DCGAN_weights_path,overwrite=True)
 
+
     def load(self):
         self.generator.load_weights(self.gen_weights_path)
         self.discriminator.load_weights(self.disc_weights_path)
         self.DCGAN_model.load_weights(self.DCGAN_weights_path)
 
-
-    def train(self , label_smoothing=False):
+    @timeit(log_info="Training pix2pix" ,flag=True)
+    def train(self , label_smoothing=False,retrain=False):
         gen_loss, disc_loss  = 100 , 100
-        total_epoch = self.nb_epoch * self.batch_size
         e_ptr = 0
         n_batch_per_epoch = 100
-        if os.path.exists(self.gen_weights_path):
+        total_epoch = n_batch_per_epoch * self.batch_size
+        
+
+        if retrain:
             print("Found prev_trained models ...")
             self.load()
             print("Retrain the model ")
 
         try:
             for e in range( self.nb_epoch ):
-                progbar = generic_utils.Progbar(total_epoch)
                 batch_counter = 1 
-                
-                start =time.time()
+                start =time()
+                progbar = generic_utils.Progbar(total_epoch)
+                batch_counter = 1
+                start = time()
+
                 for X , y in self.gen_batch(self.batch_size):
                     X_disc , y_disc =  self.get_disc_batch(X,y,self.generator , batch_counter ,self.patch_size,label_smoothing=label_smoothing,label_flipping=0)
                     
@@ -102,25 +109,37 @@ class  K_DCGAN(Model):
                     self.discriminator.trainable = False
                     gen_loss = self.DCGAN_model.train_on_batch(X_gen , [X_gen_target, y_gen ])
 
-                    self.DCGAN_model .trainable = True
+                    self.DCGAN_model.trainable = True
+                    
+                    batch_counter += 1
+                    progbar.add(self.batch_size, values=[("D logloss", disc_loss),
+                                                    ("G tot", gen_loss[0]),
+                                                    ("G L1", gen_loss[1]),
+                                                    ("G logloss", gen_loss[2])])
+                    if batch_counter % (n_batch_per_epoch / 2) == 0:
+                        # Get new images from validation
+                        plot_generated_batch(X, y, self.generator,self.batch_size, "channel last", "training")
+                        X_test, y_test = next(self.gen_batch(self.batch_size , validation=True))
+                        plot_generated_batch(X_test, y_test, self.generator,
+                                                        self.batch_size, self.batch_size, "validation")
 
-                    progbar.add(self.batch_size, values=[("Discrminaitor logloss", disc_loss),
-                                                    ("Generator tot", gen_loss[0]),
-                                                    ("Generator L1 loss", gen_loss[1]),
-                                                    ("Generator logloss", gen_loss[2])])
-                    self.save()
                     if batch_counter >= n_batch_per_epoch:
                         break
+                    e_ptr = e 
+
                 print("")
-                print('Epoch %s/%s, Time: %s' % (e + 1, self.nb_epoch, ms_to_hr_mins(time.time() - start)), end="\r")
-                if e % 5 == 0: self.save(e)
-                e_ptr = e 
+                t_time =time() - start
+                print('Epoch %s/%s, Time: %s' % (e + 1, self.nb_epoch, ms_to_hr_mins(t_time)),end="\r")
+                
+                if e % 5 == 0: self.save()
+                
+                
         except KeyboardInterrupt:
-            print("Interruption occured.... Saving the model Epochs:{}".format(e))
+            print("\nInterruption occured.... Saving the model Epochs:{}".format(e))
             self.save()
 
 if __name__ == "__main__":
     model = K_DCGAN()
-    model.train()
+    model.train(retrain=False)
 
         
