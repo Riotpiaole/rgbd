@@ -292,7 +292,7 @@ def get_disc_batch(X, y, generator_model, batch_counter, patch_size,
     # Create X_disc: alternatively only generated or real images
     if batch_counter % 2 == 0:
         # Produce an output
-        # X_disc = generator_model.predict(X_sketch_batch)
+        # X_disc = generator_model.predict(y_batch)
         X_disc = generator_model.predict(X)
         y_disc = np.zeros((X_disc.shape[0], 2), dtype=np.uint8)
         y_disc[:, 0] = 1
@@ -338,21 +338,21 @@ def extract_patches(X , patch_size):
     
     return list_X
 
-def plot_generated_batch(X_full, X_sketch, generator_model, batch_size, image_data_format, suffix):
+def plot_generated_batch(X, y, generator_model, batch_size, image_data_format, suffix):
 
     # Generate images
-    X_gen = generator_model.predict(X_sketch)
+    y_gen = generator_model.predict(X)
 
-    X_sketch = inverse_normalization(X_sketch)
-    X_full = inverse_normalization(X_full)
-    X_gen = inverse_normalization(X_gen)
+    y = inverse_normalization(y)
+    X = inverse_normalization(X)
+    y_gen = inverse_normalization(y_gen)
     
-    Xs = X_sketch[:8]
-    Xg = X_gen[:8]
-    Xr = X_full[:8]
+    ys = y[:8]
+    yg = y_gen[:8]
+    Xr = X[:8]
 
     if image_data_format == "channels_last":
-        X = np.concatenate((Xs, Xg, Xr), axis=0)        
+        X = np.concatenate((ys, yg, Xr), axis=0)        
         list_rows = []
         for i in range(int(X.shape[0] // 4)):
             Xr = np.concatenate([X[k] for k in range(4 * i, 4 * (i + 1))], axis=1)
@@ -361,7 +361,7 @@ def plot_generated_batch(X_full, X_sketch, generator_model, batch_size, image_da
         Xr = np.concatenate(list_rows, axis=0)
 
     if image_data_format == "channels_first":
-        X = np.concatenate((Xs, Xg, Xr), axis=0)
+        X = np.concatenate((ys, yg, Xr), axis=0)
         list_rows = []
         for i in range(int(X.shape[0] // 4)):
             Xr = np.concatenate([X[k] for k in range(4 * i, 4 * (i + 1))], axis=2)
