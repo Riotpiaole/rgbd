@@ -21,11 +21,12 @@ def l1_loss(y_true , y_pred):
 
 class  K_DCGAN(data_model):
     def __init__( self  ,flag = "upsample" , epoch=100000):
-        data_model.__init__(self,"K_DCGAN","DCGAN")
+        data_model.__init__(self,"K_DCGAN_reverse","DCGAN")
         self.image_dim = [256,256,3]
         self.patch_size = [64,64]
         self.batch_size = 2
         self.nb_epoch = epoch
+        self.n_batch_per_epoch = 500
         self.build(self.image_dim)
         self.disc_weights_path = os.path.join(self.model_path , "disc_weight_epoch.h5") 
         self.gen_weights_path = os.path.join(self.model_path , "gen_weight_epoch.h5")
@@ -78,10 +79,8 @@ class  K_DCGAN(data_model):
     @timeit(log_info="Training pix2pix")
     def train(self , label_smoothing=False,retrain=False):
         gen_loss, disc_loss  = 100 , 100
-        e_ptr = 0
-        n_batch_per_epoch = 100
+        n_batch_per_epoch = self.n_batch_per_epoch
         total_epoch = n_batch_per_epoch * self.batch_size
-        
 
         if retrain:
             print("Found prev_trained models ...")
@@ -107,7 +106,7 @@ class  K_DCGAN(data_model):
                     y_gen[:,1] =1
                     
                     self.discriminator.trainable = False
-                    gen_loss = self.DCGAN_model.train_on_batch(X_gen , [X_gen_target, y_gen ])
+                    gen_loss = self.DCGAN_model.train_on_batch(X_gen_target , [X_gen, y_gen ])
 
                     self.DCGAN_model.trainable = True
                     
@@ -139,6 +138,6 @@ class  K_DCGAN(data_model):
 
 if __name__ == "__main__":
     model = K_DCGAN()
-    model.train(retrain=True)
+    model.train(retrain=False)
 
         

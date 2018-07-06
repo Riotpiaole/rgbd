@@ -8,7 +8,6 @@ from keras.layers.pooling import MaxPooling2D
 import keras.backend as K
 import numpy as np
 import sys , os 
-from model import extract_patches
 import matplotlib.pyplot as plt
 sys.path.insert(0,"..")
 def normalization(X):
@@ -326,6 +325,17 @@ def gen_batch(X1, X2, batch_size):
         idx = np.random.choice(X1.shape[0], batch_size, replace=False)
         yield X1[idx], X2[idx]
 
+
+def extract_patches(X , patch_size):
+    list_X = []
+    list_row_idx = [(i * patch_size[0], (i + 1) * patch_size[0]) for i in range(X.shape[1] // patch_size[0])]
+    list_col_idx = [(i * patch_size[1], (i + 1) * patch_size[1]) for i in range(X.shape[2] // patch_size[1])]
+
+    for row_idx in list_row_idx:
+        for col_idx in list_col_idx:
+            list_X.append(X[:, row_idx[0]:row_idx[1], col_idx[0]:col_idx[1], :])
+    
+    return list_X
 
 def plot_generated_batch(X_full, X_sketch, generator_model, batch_size, image_data_format, suffix):
 

@@ -8,7 +8,7 @@ sys.path.insert(0,"..")
 
 from utils import *
 from config import strFolderName
-import keras_utils_layers
+from keras_utils_layers import extract_patches ,normalization
 from tflearn.data_utils import image_preloader
 from tflearn.data_preprocessing import ImagePreprocessing 
 from tflearn.data_augmentation import ImageAugmentation
@@ -28,18 +28,8 @@ def read_img(filedir,name):
     img = cv2.imread(os.path.join(filedir,name),-1).astype(np.float64)
     resize_img = cv2.resize(img,(256,256) )
     resize_img = bgr_to_rgb(resize_img)
-    return keras_utils_layers.normalization(resize_img)
+    return normalization(resize_img)
 
-def extract_patches(X , patch_size):
-    list_X = []
-    list_row_idx = [(i * patch_size[0], (i + 1) * patch_size[0]) for i in range(X.shape[1] // patch_size[0])]
-    list_col_idx = [(i * patch_size[1], (i + 1) * patch_size[1]) for i in range(X.shape[2] // patch_size[1])]
-
-    for row_idx in list_row_idx:
-        for col_idx in list_col_idx:
-            list_X.append(X[:, row_idx[0]:row_idx[1], col_idx[0]:col_idx[1], :])
-    
-    return list_X
 
 
 class data_model(object):
@@ -55,8 +45,8 @@ class data_model(object):
     def load_data(self):
         train, target= os.listdir(self.train_dir), os.listdir(self.target_dir)
         # load all of the images
-        self.data['y'] = [ read_img(self.train_dir,img ) for img in train ]
-        self.data['X'] = [ read_img(self.target_dir,img ) for img in target ]
+        self.data['X'] = [ read_img(self.train_dir,img ) for img in train ]
+        self.data['y'] = [ read_img(self.target_dir,img ) for img in target ]
         num_of_sample = math.floor(.2 * len(self.data['X'])) # 20 % of validation sample 
         self.validation= { 'X': np.array(self.data['X'][:num_of_sample]) , 'y':np.array(self.data['y'][:num_of_sample])}
         self.data['X'] = np.array(self.data['X'][num_of_sample:])
@@ -77,11 +67,12 @@ class data_model(object):
         
         y_disc = np.zeros((X.shape[0],2), dtype=np.uint8)
         if batch_counter % 2 == 0:
+            # X_disc = generator.predict(X)
             X_disc = generator.predict(X)
             y_disc[:,0 ]=1
         
         else:
-            X_disc = X
+            X_disc = y
             if label_smoothing: y_disc[:, 1] = np.random.uniform(low=0.9, high=1, size=y_disc.shape[0])
             else: y_disc[:, 1] = 1
 
