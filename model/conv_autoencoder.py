@@ -2,70 +2,126 @@ import tflearn
 import tensorflow as tf 
 import os , cv2 ,sys 
 
+
 sys.path.insert(0,"..")
 # dir code 
-from model import Model
+from model import data_model
 from utils import * 
+from keras.utils import Progbar
 
 # machine learning module 
 from keras.preprocessing import image  
-from tflearn.data_utils import image_preloader
-from tflearn.data_preprocessing import ImagePreprocessing 
-from tflearn.data_augmentation import ImageAugmentation
-from tflearn.layers.core import input_data , dropout , fully_connected 
-from tflearn.layers.conv import conv_2d , max_pool_2d ,upsample_2d
+from keras.layers import Input , Dense , Conv2D , MaxPool2D , UpSampling2D
+from keras.models import Model 
+from keras.layers.normalization import BatchNormalization
+from keras import backend as K 
+from keras.callbacks import TensorBoard
 
-class conv_autoencoder(Model):
-    def __init__(self,name="selfie_conv_autoencoder",save_name="convauto",input_shape=(240,320,3)):
-        Model.__init__(self,name,save_name)
-        self.build()
-    
-    def build(self,input_shape=(240,320,3)):
-        img_prep = ImagePreprocessing() 
-        img_prep.add_featurewise_zero_center()
-        img_prep.add_featurewise_stdnorm
+def Conv2D_Max2D(filter_size,bnorm):
+    x = Conv2D(filter_size,(3,3),activation="relu" ,padding="same")(input_img)
+    if bnorm:x = BatchNormalization()(x)
+    x = MaxPool2D((2,2),padding="same")(x)
+
+def Conv2D_UnSample(filter_size,bnorm):
+    x = Conv2D(filter_size,(3,3),activation="relu",padding="same")(x)
+    x = UpSampling2D((2,2))(x)
+
+
+class conv_autoencoder(data_model):
+    def __init__(self,name="selfie_conv_autoencoder",save_name="convauto",input_shape=(256,256,3)):
+        data_model.__init__(self,name,save_name)
+        self.input_shape = input_shape
+        self.weight_path = os.path.join(self.model_path , "{}.h5".format(self.name)) 
+
+     
+    def build(self,bnorm=False):
+        input_img = Input(shape=self.input_shape)
         with tf.name_scope("Encoder"):
-            encoder = input_data(shape=(None, input_shape[0] , input_shape[1] , input_shape[2]) , data_preprocessing=img_prep)
-            encoder = conv_2d(encoder ,16,7,activation='relu')
-            encoder = dropout(encoder , .25 )# replacible for noisy input 
-            encoder = max_pool_2d(encoder , 2 )
-            encoder = conv_2d(encoder,16,7,activation='relu')
-            encoder = max_pool_2d(encoder , 2)
-            encoder = conv_2d(encoder,8,7,activation='relu')
-            encoder = max_pool_2d(encoder , 2)
+            x = Conv2D(128,(3,3),activation="relu" ,padding="same")(input_img)
+            if bnorm:x = BatchNormalization()(x)
+            x = MaxPool2D((2,2),padding="same")(x)
+            
+            x = Conv2D(64,(3,3),activation="relu", padding="same")(x)
+            if bnorm:x = BatchNormalization()(x)
+            x = MaxPool2D((2,2),padding="same")(x)
 
-        with tf.name_scope('Decoder'):
-            decoder = conv_2d(encoder, 8, 7, activation='relu')
-            decoder = upsample_2d(decoder, 2)
-            decoder = conv_2d(decoder, 16, 7, activation='relu')
-            decoder = upsample_2d(decoder, 2)
-            decoder = conv_2d(decoder, 16, 7, activation='relu')
-            decoder = upsample_2d(decoder, 2)
-            decoder = conv_2d(decoder, 3, 7)
+            x = Conv2D(32,(3,3),activation="relu",padding="same")(x)
+            if bnorm:x = BatchNormalization()(x)
+            encoded = MaxPool2D((2,2),padding="same")(x)
 
-        model = tflearn.regression( decoder , optimizer='adadelta' , 
-                            loss='binary_crossentropy',
-                            learning_rate=.005)
-        self.model = tflearn.DNN(model,tensorboard_verbose=0,tensorboard_dir="./log")
+        x = Conv2D(16,(3,3),activation="relu",padding="same")(encoded)
+        with tf.name_scope("Decoder"):
+            x = Conv2D(32,(3,3),activation="relu",padding="same")(x)
+            x = UpSampling2D((2,2))(x)
+            
+            x = Conv2D(64,(3,3),activation="relu",padding="same")(x)
+            x = UpSampling2D((2,2))(x)
+
+            x = Conv2D(128,(3,3),activation="relu",padding="same")(x)
+            x = UpSampling2D((2,2))(x)
+
+        decoded = Conv2D(3,(3,3),activation="tanh",padding="same")(x)
+
+        model = Model(input_img , decoded)
+        model.compile( optimizer ="adam" , loss="mae")
+        self.model = model 
+
     
-    @timeit(log_info="Training finished ",flag=True)
-    def train(self,batch_size=10,n_epochs=2000):
+    def save(self):
+        if not os.path.exists(self.model_path):
+            path = self.model_path.split("/")
+            
+            os.mkdir(path[0]+"/"+path[1]+"/"+path[2])
+            os.mkdir(self.model_path)
+            h5py.File(self.weight_path)
+        self.model.save_weights(self.weight_path)
+
+    
+    def load(self):
+        self.model.load_weights(self.weight_path)
+
+    def debug_picker(self,bnorm=False):
+        input_img = Input(shape=self.input_shape)
         
-        if os.path.exists(self.model_path+".ckpt.meta"):
-            print("Found previous trained model ...")
-            self.model.load(self.model_path+".ckpt")
+        with tf.name_scope("Encoder"):
+            x = Conv2D(64,(3,3),activation="relu", padding="same")(input_img)
+            if bnorm:x = BatchNormalization()(x)
+            x = MaxPool2D((2,2),padding="same")(x)
+
+            x = Conv2D(32,(3,3),activation="relu",padding="same")(x)
+            if bnorm:x = BatchNormalization()(x)
+            encoded = MaxPool2D((2,2),padding="same")(x)
+
+        x = Conv2D(16,(3,3),activation="relu",padding="same")(encoded)
+
+        with tf.name_scope("Decoder"):
+            x = Conv2D(32,(3,3),activation="relu",padding="same")(x)
+            x = UpSampling2D((2,2))(x)
+            
+            x = Conv2D(64,(3,3),activation="relu",padding="same")(x)
+            x = UpSampling2D((2,2))(x)
+
+        decoded = Conv2D(3,(3,3),activation="tanh",padding="same")(x)
+
+        model = Model(input_img , decoded)
+        model.compile( optimizer ="adam" , loss="mae")
+
+    @timeit(log_info="Training finished ",flag=True)
+    def train(self,batch_size=100,n_epochs=100):
         try:
-            self.model.fit(self.data['train'],self.data['target'],
-                        n_epoch=n_epochs,batch_size=batch_size,
-                        show_metric=True,validation_set=.1, 
-                        run_id =self.name)
+            self.model.fit( self.data['X'], self.data['y'],
+                epochs=self.nb_epochs,
+                batch_size=batch_size,validation_data=(
+                    self.validation['X'],self.validation['y']),
+                callbacks=[TensorBoar(log_dir="/tmp/autoencoder")])
         except KeyboardInterrupt:
-            print("Emergency stop..... saving the model... ")
-            self.model.save(self.model_path+".ckpt")
-            print("Finish saving ....")
+            print("Saving Model.....")
+            self.save()
                     
 
 if __name__ =="__main__":
     model = conv_autoencoder()
+    model.debug_picker()
+    model.train()
     
     

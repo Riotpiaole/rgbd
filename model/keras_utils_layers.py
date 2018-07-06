@@ -338,7 +338,7 @@ def extract_patches(X , patch_size):
     
     return list_X
 
-def plot_generated_batch(X, y, generator_model, batch_size, image_data_format, suffix):
+def plot_generated_batch(X, y, generator_model, batch_size, image_data_format, suffix,model_name):
 
     # Generate images
     y_gen = generator_model.predict(X)
@@ -360,20 +360,11 @@ def plot_generated_batch(X, y, generator_model, batch_size, image_data_format, s
 
         Xr = np.concatenate(list_rows, axis=0)
 
-    if image_data_format == "channels_first":
-        X = np.concatenate((ys, yg, Xr), axis=0)
-        list_rows = []
-        for i in range(int(X.shape[0] // 4)):
-            Xr = np.concatenate([X[k] for k in range(4 * i, 4 * (i + 1))], axis=2)
-            list_rows.append(Xr)
-
-        Xr = np.concatenate(list_rows, axis=1)
-        Xr = Xr.transpose(1,2,0)
     if Xr.shape[-1] == 1:
         plt.imshow(Xr[:, :, 0], cmap="gray")
     else:
         plt.imshow(Xr)     
     plt.axis("off")
-    plt.savefig("../figures/current_batch_%s.png" % suffix)
+    plt.savefig("../figures/%s/current_batch_%s.png" % (model_name,suffix))
     plt.clf()
     plt.close()

@@ -8,7 +8,7 @@ sys.path.insert(0,"..")
 
 from utils import *
 from config import strFolderName
-from keras_utils_layers import extract_patches ,normalization
+from keras_utils_layers import extract_patches ,normalization , inverse_normalization
 from tflearn.data_utils import image_preloader
 from tflearn.data_preprocessing import ImagePreprocessing 
 from tflearn.data_augmentation import ImageAugmentation
@@ -57,8 +57,6 @@ class data_model(object):
     def get_data(self,index):
         return self.data['X'][index] , self.data['y'][index]
     
-
-
     def get_disc_batch(self ,X,y, generator , batch_counter , patch_size, label_smoothing=False, label_flipping=0):
         '''
         Get the discriminator batch data 
@@ -85,7 +83,8 @@ class data_model(object):
 
    
 
-    def gen_batch(self, batch_size , validation=False): 
+    def gen_batch(self, batch_size , validation=False):
+        '''get validation and train batches''' 
         while True:
             if not validation:
                 idx = np.random.choice(len(self.data['X']),batch_size ,replace=False)
@@ -94,21 +93,27 @@ class data_model(object):
                 idx = np.random.choice(len(self.validation['X']),batch_size ,replace=False)
                 yield  self.validation['X'][idx] , self.validation['y'][idx]
 
-    def build(self,input_shape):
+    def build(self):
+        '''Build the model for the network '''
         pass
 
-    def test_img(self, name="output.jpg"):
+    def load(self):
+        '''Load models weight from log/model_name'''
+        pass 
+
+    def test_img(self):
         idx = rnd.choice([ i for i in range(0 , len(self.data['train']) )]) # pick a random index
-        X , y = self.get_data( idx )
-        self.model.load("../log/model/"+self.name+"/"+self.save_name+".ckpt")
+        X , y = self.get_data( idx ) # normalized images
+        self.load()
+        
         X_pred = self.model.predict(X)
-        
-        # save the array
-        X_pred = image.array_to_img(X_pred )
-        X_pred.save("./"+name)
-        
-        X_pred = cv2.imread("./"+name)
-        showImageSet([X ,y,X_pred], ['input' , 'output', name])
+
+        X = rgb_to_bgr(image.array_to_img(inverse_normalization(X)))
+        y = rgb_to_bgr(image.array_to_img(inverse_normalization(y)))
+        X_pred = rgb_to_bgr(image.array_to_img(inverse_normalization(X_pred)))
+
+        plt.imshow(X)
+        plt.axis("off")
 
 
 if __name__ == "__main__":

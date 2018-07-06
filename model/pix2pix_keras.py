@@ -35,6 +35,7 @@ class  K_DCGAN(data_model):
     def build(self, img_dim):
         self.generator = generator_unet_upsampling(img_dim , 2 , 
             model_name="generator_unet_upsampling")
+            
         nb_patch , img_dim_disc = get_nb_patch(img_dim ,self.patch_size)
 
         # TODO test mbd
@@ -117,9 +118,9 @@ class  K_DCGAN(data_model):
                                                     ("G logloss", gen_loss[2])])
                     if batch_counter % (n_batch_per_epoch / 2) == 0:
                         # Get new images from validation
-                        plot_generated_batch(X, y, self.generator,self.batch_size, "channels_last", "training")
+                        plot_generated_batch(X, y, self.generator,self.batch_size, "channels_last", "training",self.save_name)
                         X_test, y_test = next(self.gen_batch(self.batch_size , validation=True))
-                        plot_generated_batch(X_test, y_test, self.generator,self.batch_size, "channels_last", "validation")
+                        plot_generated_batch(X_test, y_test, self.generator,self.batch_size, "channels_last", "validation",self.save_name)
 
                     if batch_counter >= n_batch_per_epoch:
                         break
