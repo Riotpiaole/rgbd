@@ -286,13 +286,14 @@ def get_nb_patch(img_dim, patch_size):
     return nb_patch, img_dim_disc
 
 
-def get_disc_batch(X_full_batch, X_sketch_batch, generator_model, batch_counter, patch_size,
+def get_disc_batch(X, y, generator_model, batch_counter, patch_size,
                    image_data_format, label_smoothing=False, label_flipping=0):
 
     # Create X_disc: alternatively only generated or real images
     if batch_counter % 2 == 0:
         # Produce an output
-        X_disc = generator_model.predict(X_sketch_batch)
+        # X_disc = generator_model.predict(X_sketch_batch)
+        X_disc = generator_model.predict(X)
         y_disc = np.zeros((X_disc.shape[0], 2), dtype=np.uint8)
         y_disc[:, 0] = 1
 
@@ -302,7 +303,7 @@ def get_disc_batch(X_full_batch, X_sketch_batch, generator_model, batch_counter,
                 y_disc[:, [0, 1]] = y_disc[:, [1, 0]]
 
     else:
-        X_disc = X_full_batch
+        X_disc = y
         y_disc = np.zeros((X_disc.shape[0], 2), dtype=np.uint8)
         if label_smoothing:
             y_disc[:, 1] = np.random.uniform(low=0.9, high=1, size=y_disc.shape[0])

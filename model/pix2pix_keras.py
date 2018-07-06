@@ -100,13 +100,13 @@ class  K_DCGAN(data_model):
                     
                     disc_loss = self.discriminator.train_on_batch(X_disc , y_disc)
                     
-
-                    X_gen_target, X_gen = next(self.gen_batch(self.batch_size))
-                    y_gen = np.zeros((X_gen.shape[0],2),dtype=np.uint8)
+                
+                    X_gen_target, Y_gen= next(self.gen_batch(self.batch_size))
+                    y_gen = np.zeros((Y_gen.shape[0],2),dtype=np.uint8)
                     y_gen[:,1] =1
                     
                     self.discriminator.trainable = False
-                    gen_loss = self.DCGAN_model.train_on_batch(X_gen_target , [X_gen, y_gen ])
+                    gen_loss = self.DCGAN_model.train_on_batch(X_gen_target , [Y_gen, y_gen ])
 
                     self.DCGAN_model.trainable = True
                     
