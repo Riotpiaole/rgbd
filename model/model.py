@@ -24,18 +24,20 @@ def rgb_to_bgr(img):
     r , g , b = np.dsplit((img),3)
     return np.dstack((b,g,r))
 
-def read_img(filedir,name):
+def read_img(filedir,name,input_shape):
+    img_shape = ( input_shape[0] ,input_shape[1])
     img = cv2.imread(os.path.join(filedir,name),-1).astype(np.float64)
-    resize_img = cv2.resize(img,(256,256) )
+    resize_img = cv2.resize(img, img_shape)
     resize_img = bgr_to_rgb(resize_img)
     return normalization(resize_img)
 
 
 
 class data_model(object):
-    def __init__(self,name,save_name):
+    def __init__(self,name,save_name,input_shape =( 256 ,256 ,3 )):
         self.name = name
         self.save_name = save_name
+        self.img_shape = input_shape 
         self.model_path = "../log/"+self.name+"/"+self.save_name
         self.model_dir = "../data/"+strFolderName
         self.target_dir  , self.train_dir = self.model_dir+"/target" , self.model_dir+"/train" 
@@ -45,8 +47,8 @@ class data_model(object):
     def load_data(self):
         train, target= os.listdir(self.train_dir), os.listdir(self.target_dir)
         # load all of the images
-        self.data['X'] = [ read_img(self.train_dir,img ) for img in train ]
-        self.data['y'] = [ read_img(self.target_dir,img ) for img in target ]
+        self.data['X'] = [ read_img(self.train_dir,img , self.img_shape) for img in train ]
+        self.data['y'] = [ read_img(self.target_dir,img, self.img_shape ) for img in target ]
         num_of_sample = math.floor(.2 * len(self.data['X'])) # 20 % of validation sample 
         self.validation= { 'X': np.array(self.data['X'][:num_of_sample]) , 'y':np.array(self.data['y'][:num_of_sample])}
         self.data['X'] = np.array(self.data['X'][num_of_sample:])
