@@ -9,6 +9,7 @@ import keras.backend as K
 import numpy as np
 import sys , os 
 import matplotlib.pyplot as plt
+from utils import * 
 sys.path.insert(0,"..")
 def normalization(X):
     return X / 127.5 - 1
@@ -282,10 +283,10 @@ def get_nb_patch(img_dim, patch_size):
 def get_disc_batch(X, y, generator_model, batch_counter, patch_size,
                    image_data_format, label_smoothing=False, label_flipping=0):
 
+    generator_model.train_on_batch(X,y)
     # Create X_disc: alternatively only generated or real images
     if batch_counter % 2 == 0:
         # Produce an output
-        # X_disc = generator_model.predict(y_batch)
         X_disc = generator_model.predict(X)
         y_disc = np.zeros((X_disc.shape[0], 2), dtype=np.uint8)
         y_disc[:, 0] = 1
@@ -358,6 +359,7 @@ def plot_generated_batch(X, y, generator_model, batch_size, image_data_format, s
     else:
         plt.imshow(Xr)     
     plt.axis("off")
+    check_folders("../figures/%s/current_batch_%s.png" % (model_name,suffix) )
     plt.savefig("../figures/%s/current_batch_%s.png" % (model_name,suffix))
     plt.clf()
     plt.close()

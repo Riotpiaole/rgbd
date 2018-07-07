@@ -31,6 +31,9 @@ class  K_DCGAN(data_model):
         self.disc_weights_path = os.path.join(self.model_path , "disc_weight_epoch.h5") 
         self.gen_weights_path = os.path.join(self.model_path , "gen_weight_epoch.h5")
         self.DCGAN_weights_path = os.path.join(self.model_path, "DCGAN_weight_epoch.h5")
+        check_folders(self.gen_weights_path)
+        check_folders(self.disc_weights_path)
+        check_folders(self.DCGAN_weights_path)
     
     def build(self, img_dim):
         self.generator = generator_unet_upsampling(img_dim , 2 , 
@@ -58,14 +61,6 @@ class  K_DCGAN(data_model):
         self.discriminator.compile(loss="binary_crossentropy",optimizer=opt_discriminator)        
     
     def save(self):
-        if not os.path.exists(self.model_path):
-            path = self.model_path.split("/")
-            
-            os.mkdir(path[0]+"/"+path[1]+"/"+path[2])
-            os.mkdir(self.model_path)
-            h5py.File(self.gen_weights_path)
-            h5py.File(self.disc_weights_path)
-            h5py.File(self.DCGAN_weights_path)
         
         self.generator.save_weights( self.gen_weights_path, overwrite=True)
         self.discriminator.save_weights( self.disc_weights_path , overwrite=True)
@@ -98,7 +93,7 @@ class  K_DCGAN(data_model):
 
                 for X , y in self.gen_batch(self.batch_size):
                     
-                    X_disc , y_disc =  self.get_disc_batch(X,y,self.generator , batch_counter ,self.patch_size,label_smoothing=label_smoothing,label_flipping=0)
+                    X_disc , y_disc =  self.get_disc_batch(X,y,self.generator, batch_counter ,self.patch_size,label_smoothing=label_smoothing,label_flipping=0)
                     
                     disc_loss = self.discriminator.train_on_batch(X_disc , y_disc)
                     
@@ -108,7 +103,7 @@ class  K_DCGAN(data_model):
                     y_gen[:,1] =1
                     
                     self.discriminator.trainable = False
-                    gen_loss = self.DCGAN_model.train_on_batch(X_gen_target , [Y_gen, y_gen ])
+                    gen_loss = self.DCGAN_model.train_on_batch(X_gen_target , [y, y_gen ])
 
                     self.DCGAN_model.trainable = True
                     

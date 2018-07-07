@@ -162,7 +162,24 @@ def timeit(log_info=None,flag=False):
         return inner_wrapper
     return wrapper
 
-def check_folders(folder_paths):
-    for path in folder_paths:
-        if not os.path.exists(path):os.mkdir(path)
+def create_folder(indx , folder_path):
+    '''Recursive function take number of / tag and created the folders if not found ...'''
+    strRecurPath = "/".join(folder_path[:indx])
+    if indx == 2: # reach ../sth
+        if not os.path.exists(strRecurPath):
+            print("Folder {} not found, Create the folder {}.".format(strRecurPath,strRecurPath))
+            os.mkdir(strRecurPath)
+        else: print("Folder {} found Skipping.".format(strRecurPath))
+        return 
+    else:
+        if not os.path.exists(strRecurPath):
+            create_folder(indx-1,folder_path)
+            print("Folder {} not found, Creating the folder {}.".format(strRecurPath,strRecurPath))
+            os.mkdir(strRecurPath)
+        else: print("Folder {} found Skipping.".format(strRecurPath))
 
+    
+
+def check_folders(folder_paths):
+    '''Checking the Given Path existence if not create the folder'''
+    create_folder(len(folder_path),folder_paths.split("/"))
