@@ -20,9 +20,9 @@ def l1_loss(y_true , y_pred):
     return K.sum( K.abs( y_pred  - y_true), axis=-1)
 
 class  K_DCGAN(data_model):
-    def __init__( self  ,flag = "upsample" , epoch=100000):
-        data_model.__init__(self,"K_DCGAN_reverse","DCGAN")
-        self.image_dim = [256,256,3]
+    def __init__( self  ,flag = "upsample" , epoch=100000,img_dim = [128,128,3]):
+        self.image_dim = [128,128,3]
+        data_model.__init__(self,"K_DCGAN_dim_128","DCGAN",self.image_dim)
         self.patch_size = [64,64]
         self.batch_size = 2
         self.nb_epoch = epoch
@@ -31,9 +31,8 @@ class  K_DCGAN(data_model):
         self.disc_weights_path = os.path.join(self.model_path , "disc_weight_epoch.h5") 
         self.gen_weights_path = os.path.join(self.model_path , "gen_weight_epoch.h5")
         self.DCGAN_weights_path = os.path.join(self.model_path, "DCGAN_weight_epoch.h5")
-        check_folders(self.gen_weights_path)
-        check_folders(self.disc_weights_path)
-        check_folders(self.DCGAN_weights_path)
+        print(self.model_path)
+        check_folders(self.model_path)
     
     def build(self, img_dim):
         self.generator = generator_unet_upsampling(img_dim , 2 , 
@@ -61,7 +60,10 @@ class  K_DCGAN(data_model):
         self.discriminator.compile(loss="binary_crossentropy",optimizer=opt_discriminator)        
     
     def save(self):
-        
+        if not os.path.exists(self.gen_weights_path):
+            h5py.File(self.gen_weights_path)
+            h5py.File(self.disc_weights_path)
+            h5py.File(self.DCGAN_weights_path)
         self.generator.save_weights( self.gen_weights_path, overwrite=True)
         self.discriminator.save_weights( self.disc_weights_path , overwrite=True)
         self.DCGAN_model.save_weights(self.DCGAN_weights_path,overwrite=True)
@@ -72,18 +74,27 @@ class  K_DCGAN(data_model):
         self.discriminator.load_weights(self.disc_weights_path)
         self.DCGAN_model.load_weights(self.DCGAN_weights_path)
 
+    def summary(self ,name="DCGAN"):
+        if name == "Generator":
+            self.generator.summary()
+        elif name == "Discriminator":
+            self.discriminator.summary()
+        else:
+            self.DCGAN_model.summary()
+
     @timeit(log_info="Training pix2pix")
     def train(self , label_smoothing=False,retrain=False):
         gen_loss, disc_loss  = 100 , 100
         n_batch_per_epoch = self.n_batch_per_epoch
         total_epoch = n_batch_per_epoch * self.batch_size
-
+        
         if retrain:
             print("Found prev_trained models ...")
             self.load()
             print("Retrain the model ")
-
+        
         try:
+            os.system("clear")
             for e in range( self.nb_epoch ):
                 batch_counter = 1 
                 start =time()
@@ -114,9 +125,9 @@ class  K_DCGAN(data_model):
                                                     ("G logloss", gen_loss[2])])
                     if batch_counter % (n_batch_per_epoch / 2) == 0:
                         # Get new images from validation
-                        plot_generated_batch(X, y, self.generator,self.batch_size, "channels_last", "training",self.save_name)
+                        plot_generated_batch(X, y, self.generator,self.batch_size, "channels_last", "training",self.name)
                         X_test, y_test = next(self.gen_batch(self.batch_size , validation=True))
-                        plot_generated_batch(X_test, y_test, self.generator,self.batch_size, "channels_last", "validation",self.save_name)
+                        plot_generated_batch(X_test, y_test, self.generator,self.batch_size, "channels_last", "validation",self.name)
 
                     if batch_counter >= n_batch_per_epoch:
                         break
@@ -132,6 +143,7 @@ class  K_DCGAN(data_model):
         except KeyboardInterrupt:
             print("\nInterruption occured.... Saving the model Epochs:{}".format(e))
             self.save()
+
 
 if __name__ == "__main__":
     model = K_DCGAN()

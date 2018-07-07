@@ -169,6 +169,7 @@ def create_folder(indx , folder_path):
         if not os.path.exists(strRecurPath):
             print("Folder {} not found, Create the folder {}.".format(strRecurPath,strRecurPath))
             os.mkdir(strRecurPath)
+            pass
         else: print("Folder {} found Skipping.".format(strRecurPath))
         return 
     else:
@@ -176,10 +177,14 @@ def create_folder(indx , folder_path):
             create_folder(indx-1,folder_path)
             print("Folder {} not found, Creating the folder {}.".format(strRecurPath,strRecurPath))
             os.mkdir(strRecurPath)
+            pass
         else: print("Folder {} found Skipping check folder.".format(strRecurPath))
-
+        return
     
 
 def check_folders(folder_paths):
     '''Checking the Given Path existence if not create the folder'''
-    create_folder(len(folder_paths),folder_paths.split("/"))
+    create_folder(len(folder_paths.split("/")),folder_paths.split("/"))
+
+if __name__ == "__main__":
+    check_folders('../figures/K_DCGAN_dim_128')

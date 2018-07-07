@@ -360,7 +360,7 @@ def plot_generated_batch(X, y, generator_model, batch_size, image_data_format, s
     else:
         plt.imshow(Xr)     
     plt.axis("off")
-    check_folders("../figures/%s/current_batch_%s.png" % (model_name,suffix) )
+    check_folders("../figures/%s" % (model_name) )
     plt.savefig("../figures/%s/current_batch_%s.png" % (model_name,suffix))
     plt.clf()
     plt.close()

@@ -9,11 +9,7 @@ sys.path.insert(0,"..")
 from utils import *
 from config import strFolderName
 from keras_utils_layers import extract_patches ,normalization , inverse_normalization
-from tflearn.data_utils import image_preloader
-from tflearn.data_preprocessing import ImagePreprocessing 
-from tflearn.data_augmentation import ImageAugmentation
-from tflearn.layers.core import input_data , dropout , fully_connected 
-from tflearn.layers.conv import conv_2d , max_pool_2d ,upsample_2d
+import matplotlib.pyplot as plt
 from keras.preprocessing import image
 
 def bgr_to_rgb(img):
@@ -104,18 +100,20 @@ class data_model(object):
         pass 
 
     def test_img(self):
-        idx = rnd.choice([ i for i in range(0 , len(self.data['train']) )]) # pick a random index
+        idx = rnd.choice([ i for i in range(0 , len(self.data['X']) )]) # pick a random index
+        
         X , y = self.get_data( idx ) # normalized images
         self.load()
+                
+        X_pred = self.model.predict(np.array([X]))
+        X = image.array_to_img(inverse_normalization(X))
+        y = image.array_to_img(inverse_normalization(y))
+        X_pred = image.array_to_img(inverse_normalization(X_pred[0]))
         
-        X_pred = self.model.predict(X)
-
-        X = rgb_to_bgr(image.array_to_img(inverse_normalization(X)))
-        y = rgb_to_bgr(image.array_to_img(inverse_normalization(y)))
-        X_pred = rgb_to_bgr(image.array_to_img(inverse_normalization(X_pred)))
-
-        plt.imshow(X)
+        result = np.hstack((X ,y , X_pred))
+        plt.imshow(result)
         plt.axis("off")
+        plt.show()
 
 
 if __name__ == "__main__":
