@@ -62,7 +62,7 @@ class data_model(object):
         Get the discriminator batch data 
             Generator predict the sample
         '''
-        
+        generator.train_on_batch(X,y)
         y_disc = np.zeros((X.shape[0],2), dtype=np.uint8)
         if batch_counter % 2 == 0:
             # X_disc = generator.predict(X)

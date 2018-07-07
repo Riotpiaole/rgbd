@@ -11,11 +11,9 @@ import sys , os
 import matplotlib.pyplot as plt
 sys.path.insert(0,"..")
 def normalization(X):
-    
     return X / 127.5 - 1
 
 def inverse_normalization(X):
-    
     return (X + 1.) / 2.
 
 def minb_disc(x):
@@ -65,11 +63,6 @@ def deconv_block_unet(x, x2, f, h, w, batch_size, name, bn_mode, bn_axis, bn=Tru
 
 def generator_unet_upsampling(img_dim, bn_mode, model_name="generator_unet_upsampling"):
     nb_filters = 64
-    # if K.image_dim_ordering() == "channels_first":
-    #     bn_axis = 1
-    #     nb_channels = img_dim[0]
-    #     min_s = min(img_dim[1:])
-    # else:
     bn_axis = -1
     nb_channels = img_dim[-1]
     min_s = min(img_dim[:-1])

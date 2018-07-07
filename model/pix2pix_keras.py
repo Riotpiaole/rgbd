@@ -97,6 +97,7 @@ class  K_DCGAN(data_model):
                 start = time()
 
                 for X , y in self.gen_batch(self.batch_size):
+                    
                     X_disc , y_disc =  self.get_disc_batch(X,y,self.generator , batch_counter ,self.patch_size,label_smoothing=label_smoothing,label_flipping=0)
                     
                     disc_loss = self.discriminator.train_on_batch(X_disc , y_disc)
