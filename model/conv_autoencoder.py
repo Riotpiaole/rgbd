@@ -75,20 +75,7 @@ class conv_autoencoder(data_model):
             for f_size in listDecoderFSize[1:]:
                 x = Conv2D_UnSample(x,f_size)
             decoder = Conv2D(3,(3,3),activation="sigmoid",padding="same")(x)
-        return decoder
-
-
-    def debug_picker(self,bnorm=False):
-        encoder , decoder = [ 32 , 64 , 128 ] , [ 128 , 64 , 128]
-
-        input_img = Input(shape=self.input_shape)
-        
-        auto_encoder = self.auto_encoder(input_img , encoder , decoder )
-        autoencoder = Model(input_img,  auto_encoder )
-        
-        self.model = autoencoder
-        self.model.compile(loss='mean_squared_error', optimizer = RMSprop())
-        
+        return decoder        
 
     @timeit(log_info="Training finished ",flag=True)
     def train(self,batch_size=100,n_epochs=100):
