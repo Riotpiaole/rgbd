@@ -176,10 +176,10 @@ def create_folder(indx , folder_path):
             create_folder(indx-1,folder_path)
             print("Folder {} not found, Creating the folder {}.".format(strRecurPath,strRecurPath))
             os.mkdir(strRecurPath)
-        else: print("Folder {} found Skipping.".format(strRecurPath))
+        else: print("Folder {} found Skipping check folder.".format(strRecurPath))
 
     
 
 def check_folders(folder_paths):
     '''Checking the Given Path existence if not create the folder'''
-    create_folder(len(folder_path),folder_paths.split("/"))
+    create_folder(len(folder_paths),folder_paths.split("/"))

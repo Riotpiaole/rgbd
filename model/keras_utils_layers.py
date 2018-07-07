@@ -9,8 +9,9 @@ import keras.backend as K
 import numpy as np
 import sys , os 
 import matplotlib.pyplot as plt
-from utils import * 
 sys.path.insert(0,"..")
+from utils import * 
+
 def normalization(X):
     return X / 127.5 - 1
 

@@ -5,6 +5,8 @@ from keras.models import model_from_json
 import os
 import sys
 from time import time 
+sys.path.append("../")
+
 import numpy as np
 import h5py
 from keras.utils import generic_utils 
@@ -12,9 +14,7 @@ from keras.optimizers import Adam, SGD
 import keras.backend as K
 from model import data_model
 from utils import *
-
 from keras_utils_layers import *
-sys.path.append("../")
 
 def l1_loss(y_true , y_pred):
     return K.sum( K.abs( y_pred  - y_true), axis=-1)
@@ -135,6 +135,6 @@ class  K_DCGAN(data_model):
 
 if __name__ == "__main__":
     model = K_DCGAN()
-    model.train(retrain=False)
+    model.train(retrain=True)
 
         
