@@ -186,5 +186,29 @@ def check_folders(folder_paths):
     '''Checking the Given Path existence if not create the folder'''
     create_folder(len(folder_paths.split("/")),folder_paths.split("/"))
 
+def training_wrapper(func):
+    def innerwrapper(*args , **kwargs):
+        print(args , kwargs)
+        try:
+            print("")
+            print("====================================================================================================")
+            print("Start training.")
+            print("====================================================================================================\n")
+            print("\n")
+            
+            result = func(*args , **kwargs)
+            print("")
+            print("====================================================================================================")
+            print("Training completed saving the model.") 
+            print("====================================================================================================")
+            print("\nSaving Current trained model ....a")          
+            args[0].save()
+        except KeyboardInterrupt:
+            print("Interruption detected ... Saving the model ")
+            args[0].save()    
+        return result    
+    return innerwrapper
+
+
 if __name__ == "__main__":
     check_folders('../figures/K_DCGAN_dim_128')
