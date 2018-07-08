@@ -122,7 +122,7 @@ class VAEAutoEncoder(data_model):
         
         with tf.name_scope("TrainOps"):
             vae = Model(x, y)
-            vae.compile(optimizer='rmsprop', loss=None)
+            vae.compile(optimizer='rmsprop', loss="mean_squared_error")
         
         self.model = vae 
         vae.summary()
