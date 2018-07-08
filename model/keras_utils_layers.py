@@ -9,6 +9,7 @@ import keras.backend as K
 import numpy as np
 import sys , os 
 import matplotlib.pyplot as plt
+
 sys.path.insert(0,"..")
 from utils import * 
 
@@ -22,7 +23,6 @@ def minb_disc(x):
     diffs = K.expand_dims(x, 3) - K.expand_dims(K.permute_dimensions(x, [1, 2, 0]), 0)
     abs_diffs = K.sum(K.abs(diffs), 2)
     x = K.sum(K.exp(-abs_diffs), 2)
-
     return x
 
 

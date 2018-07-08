@@ -32,17 +32,13 @@ def Conv2D_UnSample(x,filter_size):
 
 
 class conv_autoencoder(data_model):
-    def __init__(self,name="selfie_conv_autoencoder",save_name="convauto",input_shape=(128,128,3)):
-        data_model.__init__(self,name,save_name,input_shape)
-        self.input_shape = input_shape
-        self.batch_size = 20
-        self.nb_epochs = 10000
-        self.weight_path = os.path.join(self.model_path , "{}.h5".format(self.name)) 
-
+    def __init__(self,title="selfie_conv_autoencoder",model_name="convauto",input_shape=(128,128,3)):
+        data_model.__init__(self,title,model_name,input_shape,epochs=100,batch_size=50)
+        self.trained_weight_path = os.path.join(self.weight_path , "{}.h5".format(self.title)) 
      
     def build(self,bnorm=False):
         encoder , decoder = [ 32  , 64 , 128 ] , [ 128 , 64  , 128 ]
-        input_img = Input(shape=self.input_shape)
+        input_img = Input(shape=self.img_shape)
         
         auto_encoder = self.auto_encoder(input_img , encoder , decoder )
         autoencoder = Model(input_img,  auto_encoder )
@@ -51,20 +47,6 @@ class conv_autoencoder(data_model):
         self.model.summary()
         self.model.compile(loss='mae', optimizer ="adam")
     
-    def save(self):
-        if not os.path.exists(self.model_path):
-            path = self.model_path.split("/")
-            
-            os.mkdir(path[0]+"/"+path[1]+"/"+path[2])
-            os.mkdir(self.model_path)
-            h5py.File(self.weight_path)
-        self.model.save_weights(self.weight_path)
-
-    
-    def load(self):
-        print( self.weight_path)
-        self.model.load_weights(self.weight_path)
-        
 
     def auto_encoder(self , input_img, listEncoderFSize , listDecoderFSize):
         with tf.name_scope("Encoder"):

@@ -20,28 +20,26 @@ def l1_loss(y_true , y_pred):
     return K.sum( K.abs( y_pred  - y_true), axis=-1)
 
 class  K_DCGAN(data_model):
-    def __init__( self  ,flag = "upsample" , epoch=100000,img_dim = [128,128,3]):
-        self.image_dim = [128,128,3]
-        data_model.__init__(self,"K_DCGAN_dim_128","DCGAN",self.image_dim)
+    def __init__( self  ,flag = "upsample" , epoch=100000,img_shape = [128,128,3]):
+        data_model.__init__(self,"K_DCGAN_dim_128","DCGAN",img_shape=img_shape,epochs=epoch)
+        # training params 
         self.patch_size = [64,64]
-        self.batch_size = 2
-        self.nb_epoch = epoch
-        self.n_batch_per_epoch = 500
-        self.build(self.image_dim)
-        self.disc_weights_path = os.path.join(self.model_path , "disc_weight_epoch.h5") 
-        self.gen_weights_path = os.path.join(self.model_path , "gen_weight_epoch.h5")
-        self.DCGAN_weights_path = os.path.join(self.model_path, "DCGAN_weight_epoch.h5")
-        print(self.model_path)
-        check_folders(self.model_path)
+        self.n_batch_per_epoch = self.batch_size * self.nb_epochs
+        
+        # init all need dir and model
+        self.build(self.img_shape)
+        self.disc_weights_path = os.path.join(self.weight_path , "disc_weight_epoch.h5") 
+        self.gen_weights_path = os.path.join(self.weight_path , "gen_weight_epoch.h5")
+        self.DCGAN_weights_path = os.path.join(self.weight_path, "DCGAN_weight_epoch.h5")
+        check_folders(self.weight_path)
     
-    def build(self, img_dim):
-        self.generator = generator_unet_upsampling(img_dim , 2 , 
+    def build(self, img_shape):
+        self.generator = generator_unet_upsampling(img_shape , 2 , 
             model_name="generator_unet_upsampling")
             
-        nb_patch , img_dim_disc = get_nb_patch(img_dim ,self.patch_size)
+        nb_patch , img_shape_disc = get_nb_patch(img_shape ,self.patch_size)
 
-        # TODO test mbd
-        self.discriminator = DCGAN_discriminator(img_dim_disc ,nb_patch,2,
+        self.discriminator = DCGAN_discriminator(img_shape_disc ,nb_patch,2,
                 model_name="DCGAN_discriminator")
         
         opt_dcgan, opt_discriminator = Adam(epsilon=1e-08) ,Adam(epsilon=1e-08)
@@ -49,7 +47,7 @@ class  K_DCGAN(data_model):
         self.generator.compile(loss="mae" , optimizer=opt_discriminator)
         self.discriminator.trainable =False
         
-        self.DCGAN_model = DCGAN(self.generator , self.discriminator , img_dim , self.patch_size , "channels_last" )
+        self.DCGAN_model = DCGAN(self.generator , self.discriminator , img_shape , self.patch_size , "channels_last" )
 
         loss = [ l1_loss , 'binary_crossentropy']
         loss_weight = [ 1E1 , 1 ]
@@ -70,9 +68,16 @@ class  K_DCGAN(data_model):
 
 
     def load(self):
-        self.generator.load_weights(self.gen_weights_path)
-        self.discriminator.load_weights(self.disc_weights_path)
-        self.DCGAN_model.load_weights(self.DCGAN_weights_path)
+        '''Load models weight from log/${model_name}'''
+        if os.path.exists(self.gen_weights_path):
+            self.generator.load_weights(self.gen_weights_path)
+            self.discriminator.load_weights(self.disc_weights_path)
+            self.DCGAN_model.load_weights(self.DCGAN_weights_path)    
+        else:
+            raise FileNotFoundError("No Previous Model Found") 
+        print("Loading model  from {}".format([self.disc_weights_path,
+                                                self.gen_weights_path,
+                                                self.DCGAN_weights_path]))
 
     def summary(self ,name="DCGAN"):
         if name == "Generator":
@@ -125,9 +130,9 @@ class  K_DCGAN(data_model):
                                                     ("G logloss", gen_loss[2])])
                     if batch_counter % (n_batch_per_epoch / 2) == 0:
                         # Get new images from validation
-                        plot_generated_batch(X, y, self.generator,self.batch_size, "channels_last", "training",self.name)
-                        X_test, y_test = next(self.gen_batch(self.batch_size , validation=True))
-                        plot_generated_batch(X_test, y_test, self.generator,self.batch_size, "channels_last", "validation",self.name)
+                        plot_generated_batch(X, y, self.generator,self.batch_size, "channels_last", "training",self.title)
+                        X_test, y_test = next(self.gen_batch(self.batch_size , validation=True)) # get next validation batches
+                        plot_generated_batch(X_test, y_test, self.generator,self.batch_size, "channels_last", "validation",self.title)
 
                     if batch_counter >= n_batch_per_epoch:
                         break
