@@ -162,23 +162,27 @@ def timeit(log_info=None,flag=False):
         return inner_wrapper
     return wrapper
 
-def create_folder(indx , folder_path):
+def create_folder(indx , folder_path, verbose=False):
     '''Recursive function take number of / tag and created the folders if not found ...'''
     strRecurPath = "/".join(folder_path[:indx])
     if indx == 2: # reach ../sth
         if not os.path.exists(strRecurPath):
-            print("Folder {} not found, Create the folder {}.".format(strRecurPath,strRecurPath))
+            if verbose: print("Folder {} not found, Create the folder {}.".format(strRecurPath,strRecurPath))
             os.mkdir(strRecurPath)
             pass
-        else: print("Folder {} found Skipping.".format(strRecurPath))
+        else: 
+            if verbose: print("Folder {} found Skipping.".format(strRecurPath))
+            pass
         return 
     else:
         if not os.path.exists(strRecurPath):
             create_folder(indx-1,folder_path)
-            print("Folder {} not found, Creating the folder {}.".format(strRecurPath,strRecurPath))
+            if verbose: print("Folder {} not found, Creating the folder {}.".format(strRecurPath,strRecurPath))
             os.mkdir(strRecurPath)
             pass
-        else: print("Folder {} found Skipping check folder.".format(strRecurPath))
+        else:
+            if verbose: print("Folder {} found Skipping check folder.".format(strRecurPath))
+            pass
         return
     
 

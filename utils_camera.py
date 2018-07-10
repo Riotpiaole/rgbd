@@ -53,6 +53,10 @@ class CameraPose:
 
     def translationMatrix(self):
         return np.array([self.m14, self.m24, self.m34])
+    
+    def __str__(self):
+        rot , trans = self.rotationMatrix() , self.translationMatrix()
+        return "rot {}\n\ntrans{}".format(rot , trans)
 
 def ReadCameraPoses(str_filename):
     pose_file = open(str_filename, 'r')
@@ -100,6 +104,10 @@ class RGBDSensorProps:
 
     def translationMatrix(self):
         return np.array(self.pos)
+    
+    def __str__(self):
+        rot , trans = self.rotationMatrix() , self.translationMatrix()
+        return "rot {}\n\ntrans{}\n".format(rot , trans)
 
 def ReadManualCalibPoses(str_filename):
     pose_file = open(str_filename, 'r')

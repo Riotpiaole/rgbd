@@ -93,7 +93,6 @@ def image_fusion(camera_params, depthData, clrImg=None, normals=None,threshold=F
     else: ptcloud = np.dstack((xcoords, ycoords, zcoords))[0]
     # depth filtering
     if threshold:
-    
         filters =np.where(ptcloud[:,2] >= 2800 )
         ptcloud = np.delete(ptcloud[:] ,filters ,0 )
         

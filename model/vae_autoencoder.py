@@ -81,47 +81,38 @@ class VAEAutoEncoder(data_model):
                 return x
         
         with tf.name_scope("Decoder"):
-            decoder_hid = Dense(intermediate_dim, activation='relu')
-            decoder_upsample = Dense(16 * 16 * filters, activation='relu')
+            decoder_hid = Dense(intermediate_dim, activation='relu')(z)
+            decoder_upsample = Dense(16 * 16 * filters, activation='relu')(decoder_hid)
 
             if K.image_data_format() == 'channels_first':
                 output_shape = (batch_size, filters, 16, 16)
             else:
                 output_shape = (batch_size, 16, 16, filters)
 
-            decoder_reshape = Reshape(output_shape[1:])
+            decoder_reshape = Reshape(output_shape[1:])(decoder_upsample)
             decoder_deconv_1 = Conv2DTranspose(filters,
                                             kernel_size=num_conv,
                                             padding='same',
                                             strides=(2, 2),
-                                            activation='relu')
+                                            activation='relu')(decoder_reshape)
             decoder_deconv_2 = Conv2DTranspose(filters,
                                             kernel_size=num_conv,
                                             padding='same',
                                             strides=(2, 2),
-                                            activation='relu')
+                                            activation='relu')(decoder_deconv_1)
             decoder_deconv_3_upsamp = Conv2DTranspose(filters,
                                                     kernel_size=(3, 3),
                                                     strides=(2, 2),
                                                     padding='same',
-                                                    activation='relu')
+                                                    activation='softmax')(decoder_deconv_2)
             decoder_mean_squash = Conv2D(img_chns,
                                         kernel_size=(3, 3),
                                         strides=(1, 1),
                                         padding='same',
-                                        activation='sigmoid')
-
-            hid_decoded = decoder_hid(z)
-            up_decoded = decoder_upsample(hid_decoded)
-            reshape_decoded = decoder_reshape(up_decoded)
-            deconv_1_decoded = decoder_deconv_1(reshape_decoded)
-            deconv_2_decoded = decoder_deconv_2(deconv_1_decoded)
-            x_decoded_relu = decoder_deconv_3_upsamp(deconv_2_decoded)
-            x_decoded_mean_squash = decoder_mean_squash(x_decoded_relu)
-            y = CustomVariationalLayer()([x, x_decoded_mean_squash])
+                                        activation='tanh')(decoder_deconv_3_upsamp)
         
         with tf.name_scope("TrainOps"):
-            vae = Model(x, y)
+            vae = Model(x, decoder_mean_squash)
             vae.compile(optimizer='rmsprop', loss="mean_squared_error")
         
         self.model = vae 

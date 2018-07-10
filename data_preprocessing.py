@@ -139,7 +139,6 @@ class DataPreprocessor():
                 inv(cam_pose1.rotationMatrix()),
                 cam_pose1.translationMatrix()*-1)
             
-
             # reproject into new cam frame
             img_pts2_1 = unproject_pointcloud(ptcloud_cam2_on_cam1,self.cam_params)            
             img_pts3_1 = unproject_pointcloud(ptcloud_cam3_on_cam1,self.cam_params)
@@ -148,8 +147,71 @@ class DataPreprocessor():
             img_reproj = np.zeros(image_cam1_color.shape,image_cam1_color.dtype)
             
             reproject_ptcloud(i , img_pts , img_reproj)
+            
+            img_reproj = cv2.morphologyEx( img_reproj , cv2. MORPH_CLOSE,  (2,2))
+            img_reproj = cv2.morphologyEx( img_reproj , cv2. MORPH_OPEN,  (2,2))
+            img_reproj = cv2.bilateralFilter(img_reproj, 10 , 30, 50)
+            
+            # ===================================================================
+            # Mask remove black color
+            # ===================================================================
+            img_reproj = cv2.morphologyEx( img_reproj , cv2. MORPH_CLOSE,  (2,2))
+            img_reproj = cv2.morphologyEx( img_reproj , cv2. MORPH_OPEN,  (2,2))
+            
+            mask_path1 = "./mask/{}/cam{}_mask{}.png".format(self.config.strFolderName,0,i)
+            mask_path2 = "./mask/{}/cam{}_mask{}.png".format(self.config.strFolderName,1,i)
+            mask_path3= "./mask/{}/cam{}_mask{}.png".format(self.config.strFolderName,2,i)
+            
+            mask1 = cv2.imread(mask_path1,-1)
+            mask1 = np.dstack((mask1,mask1,mask1)).astype(np.uint8)
 
-            if debug: showImageSet([image_cam1_color,img_reproj],["front","back"])
+            mask2 = cv2.imread(mask_path2,-1)
+            mask2 = np.dstack((mask2,mask2,mask2)).astype(np.uint8)
+            
+            mask3 = cv2.imread(mask_path3,-1)
+            mask3 = np.dstack((mask3,mask3,mask3)).astype(np.uint8)
+
+            ptcloudM2 , nVertice2 = image_fusion(self.cam_params,image_cam2_depth,mask2)
+            ptcloudM3 , nVertice3 = image_fusion(self.cam_params,image_cam3_depth,mask3)
+
+            ptcloud2M_transformed = transform_pointcloud_vectorized(ptcloudM2[:].copy(), cam_pose2.rotationMatrix(), cam_pose2.translationMatrix())
+            ptcloud3M_transformed = transform_pointcloud_vectorized(ptcloudM3[:].copy(), cam_pose3.rotationMatrix(), cam_pose3.translationMatrix())
+
+            # project cam2 and cam3 backward toward cam1
+            ptcloud_cam2M_on_cam1 = transform_pointcloud_vectorized(
+                ptcloud2M_transformed[:].copy(), 
+                inv(cam_pose1.rotationMatrix()),
+                cam_pose1.translationMatrix()*-1)
+            
+            ptcloud_cam3M_on_cam1 = transform_pointcloud_vectorized(
+                ptcloud3M_transformed[:].copy(), 
+                inv(cam_pose1.rotationMatrix()),
+                cam_pose1.translationMatrix()*-1)
+            
+            # reproject into new cam frame
+            img_pts2M_1 = unproject_pointcloud(ptcloud_cam2M_on_cam1,self.cam_params)            
+            img_pts3M_1 = unproject_pointcloud(ptcloud_cam3M_on_cam1,self.cam_params)
+
+            imgM_pts = np.vstack( ( img_pts2M_1 , img_pts3M_1 ) )
+            
+            mask_reproj = np.zeros(image_cam1_color.shape,image_cam1_color.dtype)
+            reproject_ptcloud(i , imgM_pts  , mask_reproj)
+            mask_reproj = cv2.morphologyEx( mask_reproj , cv2. MORPH_CLOSE,  (2,2))
+            mask_reproj = cv2.morphologyEx( mask_reproj , cv2. MORPH_OPEN,  (2,2))
+            mask_reproj = cv2.bilateralFilter(mask_reproj, 10 , 30, 50)
+            
+            mask_reproj[ mask_reproj == 255] =1 
+            mask_reproj = 1 - mask_reproj
+            mask_reproj[ mask_reproj == 1 ] = 255
+            img_reproj[ mask_reproj == 255 ] = 255
+
+            mask1[ mask1 == 255 ] =1 
+            mask1 = 1- mask1
+            mask1[ mask1 == 1 ] = 255
+
+            image_cam1_color[ mask1 == 255 ] = 255
+
+            if debug: showImageSet([image_cam1_color,img_reproj , mask_reproj],["front","back" , "mask_reproj"])
 
             #  folders to be saved on 
             save_path = self.config.strFilterFullPath 
@@ -158,15 +220,13 @@ class DataPreprocessor():
             # name of the file
             save_target_file_name , save_train_file_name = os.path.join(save_target_folder_path,"label{}.png".format(i)) , os.path.join(save_train_folder_path,"train{}.png".format(i))
             
-            check_folders([save_path , save_target_folder_path , save_train_folder_path ])
-
             if save: 
                 cv2.imwrite(save_target_file_name,img_reproj)
                 cv2.imwrite(save_train_file_name,image_cam1_color)
             
             end =time()
             time_taken =  round (end - start ,2)
-            print("Saving train and target at frame {} and Taken:{} ms".format(i,time_taken),end="\r")
+            # print("Saving train and target at frame {} and Taken:{} ms".format(i,time_taken),end="\r")
             
 
     # helper func for gettin rgb an d
@@ -185,7 +245,7 @@ class DataPreprocessor():
         
         # obtain the each camera images
         for cam in range( self.num_cam ):
-            path = "./mask/{}/cam{}_mask.png".format(self.config.strFolderName , cam+1)
+            path = "./mask/{}/cam{}_mask0.png".format(self.config.strFolderName , cam+1)
             if os.path.isfile(path):self.current_mask[cam] = cv2.imread(path , -1)
             else:self.foreground_extraction(cam,0)            
 
@@ -208,13 +268,13 @@ class DataPreprocessor():
     def images_extraction(self,cam,debug=False):
         start = time()
         for frame_num in range(self.total_frame_num):
-            self.foreground_extraction(cam,frame_num,debug=debug) # remove background
+            self.foreground_extraction(cam,frame_num,debug=debug,save=False) # remove background
         end = time() 
         time_taken =  round (end - start ,2)
         print("Finished extracting camera {}, Time: {} ms".format(cam, time_taken))
     
-    def foreground_extraction(self ,cam, frame_num,debug = False ): 
-        mask_path ="./mask/{}/cam{}_mask.png".format(self.config.strFolderName , cam + 1)
+    def foreground_extraction(self ,cam, frame_num,debug = False ,save=False): 
+        mask_path ="./mask/{}/cam{}_mask0.png".format(self.config.strFolderName , cam + 1)
         img_color , img_depth = self.get_rgbd(cam,frame_num)        
         next_mask, num_mask = self.filter_img_to_labels(cam,img_depth,debug)
         
@@ -253,6 +313,7 @@ class DataPreprocessor():
                         ["current_mask ","prev_mask ","clr" , "depth","mask"])
 
         self.current_mask[cam] = result.astype(np.uint8)
+        if save: cv2.imwrite("./mask/{}/cam{}_mask{}.png".format(self.config.strFolderName,cam,frame_num),result.astype(np.uint8))
 
     def filter_img_to_labels(self,cam,img_depth, debug=False):
         # Extracting the important region relative to previous filters
@@ -266,7 +327,8 @@ class DataPreprocessor():
         left_xmin = param['lx']
         lower_y = param['yd']
         if max_depth <= 2000: raise ValueError("invalid max depth size, at least greater 2000") 
-        img_depth[ img_depth >= max_depth ] = 0 
+        if img_depth.any():img_depth[ img_depth >= max_depth ] = 0 
+
         
         # bilateralfiltering to increase the thickness of an image
         dp_clean = cv2.morphologyEx( img_depth , cv2. MORPH_CLOSE,   m_close )
@@ -298,11 +360,11 @@ class DataPreprocessor():
     def callback(self,mask,cam):
         print("Store mask in {} cam {} at frame {}".format(self.config.strVideoFolder,cam+1, self.frame_num) )
         self.current_mask[cam] = mask.astype(np.uint8) # this one 
-        path = "./mask/{}/cam{}_mask.png".format(self.config.strFolderName,cam+1)
+        path = "./mask/{}/cam{}_mask0.png".format(self.config.strFolderName,cam+1)
         
         # store the images in the mask/SAMPLE_NAME/mask.png
         cv2.imwrite(os.path.join(
-            "./mask/{}/cam{}_mask.png".format(self.config.strFolderName,cam+1))
+            "./mask/{}/cam{}_mask0.png".format(self.config.strFolderName,cam+1))
             ,self.current_mask[cam])
         
         # destroy the windows 
@@ -316,7 +378,7 @@ class DataPreprocessor():
     def demo(self):
         self.load_data()
         self.rgbd_filtering()
-        self.get_backward_frame()
+        self.get_backward_frame(save=True , debug=False)
         
 
 if __name__ == "__main__":

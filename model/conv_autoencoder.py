@@ -19,6 +19,14 @@ from keras.callbacks import TensorBoard
 from keras.optimizers import RMSprop
 import h5py
 
+HUBER_DELTA = 0.5
+def smoothL1(y_true, y_pred):
+    x = K.abs(y_true - y_pred)
+    if K._BACKEND == 'tensorflow':
+        import tensorflow as tf
+        x = tf.where(x < HUBER_DELTA, 0.5 * x ** 2, HUBER_DELTA * (x - 0.5 * HUBER_DELTA))
+        return  K.sum(x)
+
 def Conv2D_Max2D(x,filter_size,bnorm=False):
     x = Conv2D(filter_size,(3,3),activation="relu" ,padding="same")(x)
     if bnorm:x = BatchNormalization()(x)
@@ -37,7 +45,7 @@ class conv_autoencoder(data_model):
         self.trained_weight_path = os.path.join(self.weight_path , "{}.h5".format(self.title)) 
      
     def build(self,bnorm=False):
-        encoder , decoder = [ 32  , 64 , 128 ] , [ 128 , 64  , 128 ]
+        encoder , decoder = [ 128 , 64 , 32  ,64 , 128, 256 ,512  ] , [  512, 256, 128 , 64 , 32 ,64 , 128  ]
         input_img = Input(shape=self.img_shape)
         
         auto_encoder = self.auto_encoder(input_img , encoder , decoder )
@@ -45,7 +53,9 @@ class conv_autoencoder(data_model):
         
         self.model = autoencoder
         self.model.summary()
-        self.model.compile(loss='mae', optimizer ="adam")
+        # self.model.compile(loss=smoothL1, optimizer ="adam")
+        self.model.compile(loss="categorical_crossentropy", optimizer ="adam")
+        self.model.summary()
     
 
     def auto_encoder(self , input_img, listEncoderFSize , listDecoderFSize):
@@ -58,27 +68,27 @@ class conv_autoencoder(data_model):
             x = Conv2D_UnSample(x,listDecoderFSize[0])
             for f_size in listDecoderFSize[1:]:
                 x = Conv2D_UnSample(x,f_size)
-            decoder = Conv2D(3,(3,3),activation="tanh",padding="same")(x)
+            decoder = Conv2D(3,(3,3),activation="relu",padding="same")(x)
         return decoder        
 
+    @training_wrapper
     @timeit(log_info="Training finished ")
-    def train(self,batch_size=100,n_epochs=10000):
-        try:
-            self.model.fit( self.data['X'], self.data['y'],
-                epochs=self.nb_epochs,
-                batch_size=self.batch_size,validation_data=(
-                    self.validation['X'],self.validation['y']),
-                callbacks=[TensorBoard(log_dir="/tmp/autoencoder")])
-            print ("Training complete saving the model.")
-            self.save()
-        except KeyboardInterrupt:
-            print("Saving Model.....")
-            self.save()
+    def train(self,retrain=False):
+        if retrain:
+            print("Loading Model")
+            self.load()
+        self.model.fit( self.data['X'], self.data['y'],
+            epochs=self.nb_epochs,
+            batch_size=self.batch_size,validation_data=(
+                self.validation['X'],self.validation['y']),
+            callbacks=[TensorBoard(log_dir="/tmp/autoencoder")])
+        print ("Training complete saving the model.")
+        
                     
 
 if __name__ =="__main__":
     model = conv_autoencoder()
     model.build()
-    model.test_img()
+    
     
     
