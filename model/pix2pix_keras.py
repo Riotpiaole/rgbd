@@ -59,16 +59,20 @@ class  K_DCGAN(data_model):
     
     def log_checkpoint(self,epoch , batch, loss):
         log_path =os.path.join(self.weight_path , "checkpoint")
+        
         prev_epochs , prev_batch_size =  0 , 0
-        if os.path.exists(log_path ):
+        if os.path.isfile(log_path):
             with open( log_path, "w+") as f:
-                line = f.readline().split(" ")
-                prev_epochs , prev_batch_size = int(line[4]) ,int(line[len(line)-1])
+                line = f.readline()
+                if "Epoch" in line: 
+                    line = f.readline().split(" ")
+                    prev_epochs  = int(line[4])
+        
         with open(log_path , "w+") as f:
             f.write( "Model_Name {} ".format(self.title))
             f.write( "Epoch {} in batch {}".format( 
                 epoch + prev_epochs ,
-                batch + prev_batch_size))
+                batch ))
             f.write( "\n")
             f.write( "Losses: {}".format( loss ))
 
@@ -163,7 +167,7 @@ class  K_DCGAN(data_model):
 
                 print("")
                 t_time =time() - start
-                print('Epoch %s/%s, Time: %s' % (e + 1, self.nb_epochs, math.floor(t_time,2)),end="\r")
+                print('Epoch %s/%s, Time: %s ms' % (e + 1, self.nb_epochs, round(t_time,2) ),end="\r")
                 
                 if e % 5 == 0: 
                     self.save()
@@ -186,6 +190,6 @@ class  K_DCGAN(data_model):
 
 if __name__ == "__main__":
     model = K_DCGAN()
-    model.train(retrain=True)
+    model.train(retrain=False)
 
         

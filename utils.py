@@ -192,7 +192,7 @@ def check_folders(folder_paths):
 
 def training_wrapper(func):
     def innerwrapper(*args , **kwargs):
-        print(args , kwargs)
+        result = -1
         try:
             print("")
             print("====================================================================================================")

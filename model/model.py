@@ -12,6 +12,7 @@ from keras_utils_layers import extract_patches ,normalization , inverse_normaliz
 import matplotlib.pyplot as plt
 from keras.preprocessing import image
 from functools import wraps
+import h5py
 
 def bgr_to_rgb(img):
     b , g , r =  np.dsplit((img),3)
@@ -133,7 +134,12 @@ class data_model(object):
         y = image.array_to_img(inverse_normalization(y))
         X_pred = image.array_to_img(inverse_normalization(X_pred[0]))
         
+        suffix = "End_test"
+
         result = np.hstack((X ,y , X_pred))
+        
+        check_folders("../figures/%s" % (self.title) )
+        plt.savefig("../figures/%s/current_batch_%s.png" % (self.title,suffix))
         plt.imshow(result)
         plt.axis("off")
         plt.show()

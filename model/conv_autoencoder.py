@@ -40,8 +40,8 @@ def Conv2D_UnSample(x,filter_size):
 
 
 class conv_autoencoder(data_model):
-    def __init__(self,title="selfie_conv_autoencoder",model_name="convauto",input_shape=(128,128,3)):
-        data_model.__init__(self,title,model_name,input_shape,epochs=100,batch_size=50)
+    def __init__(self,title="selfie_conv_autoencoder",model_name="convauto",input_shape=(128,128,3) , epochs=100):
+        data_model.__init__(self,title,model_name,input_shape,epochs=epochs,batch_size=16)
         self.trained_weight_path = os.path.join(self.weight_path , "{}.h5".format(self.title)) 
      
     def build(self,bnorm=False):
@@ -56,6 +56,7 @@ class conv_autoencoder(data_model):
         # self.model.compile(loss=smoothL1, optimizer ="adam")
         self.model.compile(loss="categorical_crossentropy", optimizer ="adam")
         self.model.summary()
+        check_folders(self.weight_path)
     
 
     def auto_encoder(self , input_img, listEncoderFSize , listDecoderFSize):
@@ -70,6 +71,21 @@ class conv_autoencoder(data_model):
                 x = Conv2D_UnSample(x,f_size)
             decoder = Conv2D(3,(3,3),activation="relu",padding="same")(x)
         return decoder        
+    
+    def log_checkpoint(self,epoch , batch, loss):
+        log_path =os.path.join(self.weight_path , "checkpoint")
+        prev_epochs , prev_batch_size =  0 , 0
+        if os.path.exists(log_path ):
+            with open( log_path, "w+") as f:
+                line = f.readline().split(" ")
+                prev_epochs , prev_batch_size = int(line[4]) ,int(line[len(line)-1])
+        with open(log_path , "w+") as f:
+            f.write( "Model_Name {} ".format(self.title))
+            f.write( "Epoch {} in batch {}".format( 
+                epoch + prev_epochs ,
+                batch + prev_batch_size))
+            f.write( "\n")
+            f.write( "Losses: {}".format( loss ))
 
     @training_wrapper
     @timeit(log_info="Training finished ")
@@ -87,8 +103,6 @@ class conv_autoencoder(data_model):
                     
 
 if __name__ =="__main__":
-    model = conv_autoencoder()
+    model = conv_autoencoder(epochs=100000)
     model.build()
-    
-    
-    
+    model.train(retrain=True) 
