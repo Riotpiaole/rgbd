@@ -8,6 +8,7 @@ from time import time
 sys.path.append("../")
 
 import numpy as np
+import tensorflow as tf
 import h5py ,math
 from keras.utils import generic_utils 
 from keras.optimizers import Adam, SGD
@@ -19,8 +20,13 @@ from keras_utils_layers import *
 def l1_loss(y_true , y_pred):
     return K.sum( K.abs( y_pred  - y_true), axis=-1)
 
+def write_log(callback , names , logs , batch_no):
+    for name , value in zip(names,logs):
+        summary = tf.Summary()
+        summary_value = summary.value.add()
+
 class  K_DCGAN(data_model):
-    def __init__( self  ,flag = "upsample" , epoch=100000,img_shape = [128,128,3]):
+    def __init__( self  ,flag = "upsample" , epoch=100000,img_shape = [256,256,3]):
         data_model.__init__(self,"K_DCGAN_dim_128","DCGAN",img_shape=img_shape,epochs=epoch)
         # training params 
         self.patch_size = [64,64]
@@ -168,7 +174,6 @@ class  K_DCGAN(data_model):
                 print("")
                 t_time =time() - start
                 print('Epoch %s/%s, Time: %s ms' % (e + 1, self.nb_epochs, round(t_time,2) ),end="\r")
-                
                 if e % 5 == 0: 
                     self.save()
                     self.log_checkpoint(e , batch_counter , 
