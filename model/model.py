@@ -120,7 +120,7 @@ class data_model(object):
 
     def save(self):
         if not os.path.exists(self.trianed_weight_path):
-            h5py.File(self.trained_weight_path)
+            h5py.File(self.trianed_weight_path)
         self.model.save_weights(self.trianed_weight_path)        
 
     def test_img(self):
