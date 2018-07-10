@@ -44,7 +44,7 @@ class  K_DCGAN(data_model):
         
         opt_dcgan, opt_discriminator = Adam(epsilon=1e-08) ,Adam(epsilon=1e-08)
          
-        self.generator.compile(loss="mae" , optimizer=opt_discriminator)
+        self.generator.compile(loss="categorical_crossentropy" , optimizer=opt_discriminator)
         self.discriminator.trainable =False
         
         self.DCGAN_model = DCGAN(self.generator , self.discriminator , img_shape , self.patch_size , "channels_last" )
@@ -100,7 +100,7 @@ class  K_DCGAN(data_model):
         
         try:
             os.system("clear")
-            for e in range( self.nb_epoch ):
+            for e in range( self.nb_epochs ):
                 batch_counter = 1 
                 start =time()
                 progbar = generic_utils.Progbar(total_epoch)
@@ -109,18 +109,26 @@ class  K_DCGAN(data_model):
 
                 for X , y in self.gen_batch(self.batch_size):
                     
-                    X_disc , y_disc =  self.get_disc_batch(X,y,self.generator, batch_counter ,self.patch_size,label_smoothing=label_smoothing,label_flipping=0)
+                    X_disc , y_disc =  self.get_disc_batch(X,y,self.generator, 
+                            batch_counter ,
+                            self.patch_size,
+                            label_smoothing=label_smoothing,
+                            label_flipping=0)
                     
                     disc_loss = self.discriminator.train_on_batch(X_disc , y_disc)
                     
                 
                     X_gen_target, Y_gen= next(self.gen_batch(self.batch_size))
+                    
+                    self.generator.train_on_batch(X_gen_target , Y_gen)
+                    
                     y_gen = np.zeros((Y_gen.shape[0],2),dtype=np.uint8)
                     y_gen[:,1] =1
                     
                     self.discriminator.trainable = False
-                    gen_loss = self.DCGAN_model.train_on_batch(X_gen_target , [y, y_gen ])
-
+                    gen_loss = self.DCGAN_model.train_on_batch(X_gen_target , [Y_gen, y_gen ])
+                    
+                    
                     self.DCGAN_model.trainable = True
                     
                     batch_counter += 1
@@ -152,6 +160,6 @@ class  K_DCGAN(data_model):
 
 if __name__ == "__main__":
     model = K_DCGAN()
-    model.train(retrain=True)
+    model.train(retrain=False)
 
         
