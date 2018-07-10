@@ -8,7 +8,7 @@ from time import time
 sys.path.append("../")
 
 import numpy as np
-import h5py
+import h5py ,math
 from keras.utils import generic_utils 
 from keras.optimizers import Adam, SGD
 import keras.backend as K
@@ -24,7 +24,7 @@ class  K_DCGAN(data_model):
         data_model.__init__(self,"K_DCGAN_dim_128","DCGAN",img_shape=img_shape,epochs=epoch)
         # training params 
         self.patch_size = [64,64]
-        self.n_batch_per_epoch = self.batch_size * self.nb_epochs
+        self.n_batch_per_epoch = self.batch_size * 100
         
         # init all need dir and model
         self.build(self.img_shape)
@@ -57,6 +57,21 @@ class  K_DCGAN(data_model):
         self.discriminator.trainable = True
         self.discriminator.compile(loss="binary_crossentropy",optimizer=opt_discriminator)        
     
+    def log_checkpoint(self,epoch , batch, loss):
+        log_path =os.path.join(self.weight_path , "checkpoint")
+        prev_epochs , prev_batch_size =  0 , 0
+        if os.path.exists(log_path ):
+            with open( log_path, "w+") as f:
+                line = f.readline().split(" ")
+                prev_epochs , prev_batch_size = int(line[4]) ,int(line[len(line)-1])
+        with open(log_path , "w+") as f:
+            f.write( "Model_Name {} ".format(self.title))
+            f.write( "Epoch {} in batch {}".format( 
+                epoch + prev_epochs ,
+                batch + prev_batch_size))
+            f.write( "\n")
+            f.write( "Losses: {}".format( loss ))
+
     def save(self):
         if not os.path.exists(self.gen_weights_path):
             h5py.File(self.gen_weights_path)
@@ -148,18 +163,29 @@ class  K_DCGAN(data_model):
 
                 print("")
                 t_time =time() - start
-                print('Epoch %s/%s, Time: %s' % (e + 1, self.nb_epoch, ms_to_hr_mins(t_time)),end="\r")
+                print('Epoch %s/%s, Time: %s' % (e + 1, self.nb_epochs, math.floor(t_time,2)),end="\r")
                 
-                if e % 5 == 0: self.save()
+                if e % 5 == 0: 
+                    self.save()
+                    self.log_checkpoint(e , batch_counter , 
+                                                    [("D logloss", disc_loss),
+                                                    ("G tot", gen_loss[0]),
+                                                    ("G L1", gen_loss[1]),
+                                                    ("G logloss", gen_loss[2])])
                 
                 
         except KeyboardInterrupt:
             print("\nInterruption occured.... Saving the model Epochs:{}".format(e))
             self.save()
+            self.log_checkpoint(e , batch_counter , 
+                                                    [("D logloss", disc_loss),
+                                                    ("G tot", gen_loss[0]),
+                                                    ("G L1", gen_loss[1]),
+                                                    ("G logloss", gen_loss[2])])
 
 
 if __name__ == "__main__":
     model = K_DCGAN()
-    model.train(retrain=False)
+    model.train(retrain=True)
 
         
