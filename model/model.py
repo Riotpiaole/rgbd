@@ -119,7 +119,7 @@ class data_model(object):
         print("Loading model  from {}".format(self.trained_weight_path))
 
     def save(self):
-        if not os.path.exists(self.trained_weight_path):
+        if not os.path.exists(self.trianed_weight_path):
             h5py.File(self.trained_weight_path)
         self.model.save_weights(self.trained_weight_path)        
 

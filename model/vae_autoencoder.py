@@ -20,7 +20,7 @@ class VAEAutoEncoder(data_model):
     def __init__(self , title="VAE_auto" , model_name ="vae_autoencoder" , img_shape=( 128 , 128 ,3 ) , batch_size=50):
         data_model.__init__(self , title ,model_name,
                                 img_shape=img_shape,
-                                epochs=1000,
+                                epochs=100,
                                 batch_size=batch_size)
         self.build()
         self.trianed_weight_path = os.path.join(self.weight_path , "vae_en_deencoder.h5")
@@ -130,5 +130,5 @@ class VAEAutoEncoder(data_model):
                         callbacks=[TensorBoard(log_dir=self.tensorboard_path)])    
     
 if __name__ == "__main__":
-    model = VAEAutoEncoder()
-    
+    model = VAEAutoEncoder()    
+    model.train()
