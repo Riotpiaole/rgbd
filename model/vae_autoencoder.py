@@ -20,7 +20,7 @@ class VAEAutoEncoder(data_model):
     def __init__(self , title="VAE_auto" , model_name ="vae_autoencoder" , img_shape=( 128 , 128 ,3 ) , batch_size=50):
         data_model.__init__(self , title ,model_name,
                                 img_shape=img_shape,
-                                epochs=100,
+                                epochs=1000,
                                 batch_size=batch_size)
         self.build()
         self.trianed_weight_path = os.path.join(self.weight_path , "vae_en_deencoder.h5")
@@ -113,15 +113,17 @@ class VAEAutoEncoder(data_model):
         
         with tf.name_scope("TrainOps"):
             vae = Model(x, decoder_mean_squash)
-            vae.compile(optimizer='rmsprop', loss="mean_squared_error")
+            vae.compile(optimizer='adam', loss="categorical_crossentropy")
         
         self.model = vae 
         vae.summary()
+
     @training_wrapper
     def train(self,retrain=False):
         if retrain:
             print("Loading Model")
             self.load()
+        
         self.model.fit( x = self.data['X'] , y =self.data['y'],
                         epochs=self.nb_epochs , batch_size=self.batch_size,
                         validation_data=(self.validation['X'],self.validation['y']),
