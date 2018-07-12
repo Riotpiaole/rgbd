@@ -3,6 +3,7 @@ import os
 # Folder of all the images
 strVideoFolder = "/Users/rockliang/Documents/Research/VISION/RGBD/unity-multiview/data"
 strFolderName = "test01"
+strFolderNameBlack = "test01black"
 
 
 # Poses of all the cameras 
@@ -12,6 +13,7 @@ strPoseLocation = os.path.join(strVideoFullPath, "unity3d_poses.txt")
 # folder storing filtered images
 strFilterFolder="/Users/rockliang/Documents/Research/VISION/RGBD/rgbd_prediction/data"
 strFilterFullPath = os.path.join(strFilterFolder,strFolderName)
+strFilterFullPathBlack = os.path.join(strFilterFolder,strFolderNameBlack)
 
 
 # Parameters for filtering the image depth

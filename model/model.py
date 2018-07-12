@@ -7,7 +7,7 @@ import random as rnd
 sys.path.insert(0,"..")
 
 from utils import *
-from config import strFolderName
+from config import strFolderName ,strFolderNameBlack
 from keras_utils_layers import extract_patches ,normalization , inverse_normalization
 import matplotlib.pyplot as plt
 from keras.preprocessing import image
@@ -30,7 +30,7 @@ def read_img(filedir,name,img_shape):
     return normalization(resize_img)
 
 class data_model(object):
-    def __init__(self,title,model_name,img_shape =( 256 ,256 ,3 ),epochs=100,batch_size = 2 ):
+    def __init__(self,title,model_name,img_shape =( 256 ,256 ,3 ),epochs=100,batch_size = 2 , white_bk=True ):
         '''data_model
         Loading all of the image from `../data` to self.data
             self.data['X']: front image 
@@ -52,7 +52,10 @@ class data_model(object):
         self.img_shape = img_shape 
         self.weight_path = "../log/"+self.title+"/"+self.model_name # dir for weights of dir
         self.trianed_weight_path = os.path.join(self.weight_path , "%s.h5" %  self.model_name)
-        self.data_dir = "../data/"+strFolderName  # dir for all of the data
+        if white_bk:
+            self.data_dir = "../data/"+strFolderName  # dir for all of the data
+        else:
+            self.data_dir = "../data/"+strFolderNameBlack
         self.target_dir  , self.train_dir = self.data_dir+"/target" , self.data_dir+"/train" 
         self.data = {}
         self.load_data()

@@ -43,7 +43,7 @@ def compute_img_diff(label, prev_label ,labels, shape=(240 ,320)):
     d = cv2.compareHist(prev_hist , next_hist , cv2.HISTCMP_CORREL )
     tmp[ labels == 1 ]= 255
     return d
-    
+
 
 def click_region_call_bk(event,x,y,flags,param):
     '''
@@ -106,6 +106,52 @@ def transform_pointcloud_vectorized(ptcloud, rotMat, transMat, scaleFactor=1000)
 
     return transformedPtcloud
 
+def two_camera_reprojection( iteration ,cam_params , sensor_props ,rgb1 , rgb2 , dep1 , dep2 ): 
+    cam_pose1 , cam_pose2  , cam_pose3 = sensor_props
+
+    ptcloud2 , nVertice2 = image_fusion(cam_params,dep1,rgb1)
+    ptcloud3 , nVertice3 = image_fusion(cam_params,dep2,rgb2)
+
+    ptcloud2_transformed = transform_pointcloud_vectorized(ptcloud2[:].copy(), cam_pose2.rotationMatrix(), cam_pose2.translationMatrix())
+    ptcloud3_transformed = transform_pointcloud_vectorized(ptcloud3[:].copy(), cam_pose3.rotationMatrix(), cam_pose3.translationMatrix())
+
+    # project cam2 and cam3 backward toward cam1
+    ptcloud_cam2_on_cam1 = transform_pointcloud_vectorized(
+        ptcloud2_transformed[:].copy(), 
+        inv(cam_pose1.rotationMatrix()),
+        cam_pose1.translationMatrix()*-1)
+    
+    ptcloud_cam3_on_cam1 = transform_pointcloud_vectorized(
+        ptcloud3_transformed[:].copy(), 
+        inv(cam_pose1.rotationMatrix()),
+        cam_pose1.translationMatrix()*-1)
+    
+    # reproject into new cam frame
+    img_pts2_1 = unproject_pointcloud(ptcloud_cam2_on_cam1,cam_params)            
+    img_pts3_1 = unproject_pointcloud(ptcloud_cam3_on_cam1,cam_params)
+    
+    img_pts = np.vstack( ( img_pts2_1 , img_pts3_1 ) )
+    img_reproj = np.zeros(rgb1.shape,rgb1.dtype)
+    
+    reproject_ptcloud(iteration , img_pts , img_reproj)
+    
+    img_reproj = cv2.morphologyEx( img_reproj , cv2. MORPH_CLOSE,  (2,2))
+    img_reproj = cv2.morphologyEx( img_reproj , cv2. MORPH_OPEN,  (2,2))
+    img_reproj = cv2.bilateralFilter(img_reproj, 10 , 30, 50)
+    
+    return img_reproj
+
+
+def black_bg(img_reproj , img_clr , mask_front , mask_bk):
+    img_reproj[ mask_bk == 0 ] = 0
+    img_clr[ mask_front == 0 ] = 0
+    return img_reproj , img_clr
+
+def white_bg(img_reproj , img_clr , mask_front , mask_bk):
+    img_reproj[ mask_bk == 0 ] = 255
+    img_clr[ mask_front == 0 ] = 255
+    return img_reproj , img_clr
+
 class DataPreprocessor():
     def __init__(self,config, img_shape=(240,320), num_cam=3 ):
         self.frame_num = 0
@@ -115,48 +161,22 @@ class DataPreprocessor():
         self.num_cam = num_cam
         self.load_data()
     
+    
     # actual filtering
     @timeit(log_info="Obtain all the traning data ")
-    def get_backward_frame(self,debug=False,save=False):
+    def get_backward_frame(self,debug=False,save=False ):
         cam_pose1 , cam_pose2  , cam_pose3 = self.sensor_props[0] ,self.sensor_props[1] , self.sensor_props[2]  
         # for each pair of camera images 
         for i , ((image_cam1_color , image_cam1_depth),(image_cam2_color , image_cam2_depth), (image_cam3_color, image_cam3_depth)) in enumerate(zip(self.data[0] , self.data[1] , self.data[2])): 
             start = time()
-            ptcloud2 , nVertice2 = image_fusion(self.cam_params,image_cam2_depth,image_cam2_color)
-            ptcloud3 , nVertice3 = image_fusion(self.cam_params,image_cam3_depth,image_cam3_color)
-
-            ptcloud2_transformed = transform_pointcloud_vectorized(ptcloud2[:].copy(), cam_pose2.rotationMatrix(), cam_pose2.translationMatrix())
-            ptcloud3_transformed = transform_pointcloud_vectorized(ptcloud3[:].copy(), cam_pose3.rotationMatrix(), cam_pose3.translationMatrix())
-
-            # project cam2 and cam3 backward toward cam1
-            ptcloud_cam2_on_cam1 = transform_pointcloud_vectorized(
-                ptcloud2_transformed[:].copy(), 
-                inv(cam_pose1.rotationMatrix()),
-                cam_pose1.translationMatrix()*-1)
             
-            ptcloud_cam3_on_cam1 = transform_pointcloud_vectorized(
-                ptcloud3_transformed[:].copy(), 
-                inv(cam_pose1.rotationMatrix()),
-                cam_pose1.translationMatrix()*-1)
-            
-            # reproject into new cam frame
-            img_pts2_1 = unproject_pointcloud(ptcloud_cam2_on_cam1,self.cam_params)            
-            img_pts3_1 = unproject_pointcloud(ptcloud_cam3_on_cam1,self.cam_params)
-            
-            img_pts = np.vstack( ( img_pts2_1 , img_pts3_1 ) )
-            img_reproj = np.zeros(image_cam1_color.shape,image_cam1_color.dtype)
-            
-            reproject_ptcloud(i , img_pts , img_reproj)
-            
-            img_reproj = cv2.morphologyEx( img_reproj , cv2. MORPH_CLOSE,  (2,2))
-            img_reproj = cv2.morphologyEx( img_reproj , cv2. MORPH_OPEN,  (2,2))
-            img_reproj = cv2.bilateralFilter(img_reproj, 10 , 30, 50)
+            img_reproj = two_camera_reprojection(i , self.cam_params , self.sensor_props ,
+                            image_cam2_color , image_cam3_color , 
+                            image_cam2_depth , image_cam3_depth)
             
             # ===================================================================
             # Mask remove black color
             # ===================================================================
-            img_reproj = cv2.morphologyEx( img_reproj , cv2. MORPH_CLOSE,  (2,2))
-            img_reproj = cv2.morphologyEx( img_reproj , cv2. MORPH_OPEN,  (2,2))
             
             mask_path1 = "./mask/{}/cam{}_mask{}.png".format(self.config.strFolderName,0,i)
             mask_path2 = "./mask/{}/cam{}_mask{}.png".format(self.config.strFolderName,1,i)
@@ -171,63 +191,48 @@ class DataPreprocessor():
             mask3 = cv2.imread(mask_path3,-1)
             mask3 = np.dstack((mask3,mask3,mask3)).astype(np.uint8)
 
-            ptcloudM2 , nVertice2 = image_fusion(self.cam_params,image_cam2_depth,mask2)
-            ptcloudM3 , nVertice3 = image_fusion(self.cam_params,image_cam3_depth,mask3)
-
-            ptcloud2M_transformed = transform_pointcloud_vectorized(ptcloudM2[:].copy(), cam_pose2.rotationMatrix(), cam_pose2.translationMatrix())
-            ptcloud3M_transformed = transform_pointcloud_vectorized(ptcloudM3[:].copy(), cam_pose3.rotationMatrix(), cam_pose3.translationMatrix())
-
-            # project cam2 and cam3 backward toward cam1
-            ptcloud_cam2M_on_cam1 = transform_pointcloud_vectorized(
-                ptcloud2M_transformed[:].copy(), 
-                inv(cam_pose1.rotationMatrix()),
-                cam_pose1.translationMatrix()*-1)
+            mask_reproj = two_camera_reprojection(i ,self.cam_params , self.sensor_props ,
+                            mask2 , mask3,
+                            image_cam2_depth , image_cam3_depth)
             
-            ptcloud_cam3M_on_cam1 = transform_pointcloud_vectorized(
-                ptcloud3M_transformed[:].copy(), 
-                inv(cam_pose1.rotationMatrix()),
-                cam_pose1.translationMatrix()*-1)
+            img_reproj_bk , img_cam1_color_bk = black_bg(
+                img_reproj[:].copy() , image_cam1_color[:].copy() ,
+                mask1 , mask_reproj)
             
-            # reproject into new cam frame
-            img_pts2M_1 = unproject_pointcloud(ptcloud_cam2M_on_cam1,self.cam_params)            
-            img_pts3M_1 = unproject_pointcloud(ptcloud_cam3M_on_cam1,self.cam_params)
+            img_reproj_wh , img_cam1_color_wh = white_bg(
+                img_reproj[:].copy() , image_cam1_color[:].copy() ,
+                mask1 , mask_reproj)
 
-            imgM_pts = np.vstack( ( img_pts2M_1 , img_pts3M_1 ) )
-            
-            mask_reproj = np.zeros(image_cam1_color.shape,image_cam1_color.dtype)
-            reproject_ptcloud(i , imgM_pts  , mask_reproj)
-            mask_reproj = cv2.morphologyEx( mask_reproj , cv2. MORPH_CLOSE,  (2,2))
-            mask_reproj = cv2.morphologyEx( mask_reproj , cv2. MORPH_OPEN,  (2,2))
-            mask_reproj = cv2.bilateralFilter(mask_reproj, 10 , 30, 50)
-            
-            mask_reproj[ mask_reproj == 255] =1 
-            mask_reproj = 1 - mask_reproj
-            mask_reproj[ mask_reproj == 1 ] = 255
-            img_reproj[ mask_reproj == 255 ] = 255
-
-            mask1[ mask1 == 255 ] =1 
-            mask1 = 1- mask1
-            mask1[ mask1 == 1 ] = 255
-
-            image_cam1_color[ mask1 == 255 ] = 255
-
-            if debug: showImageSet([image_cam1_color,img_reproj , mask_reproj],["front","back" , "mask_reproj"])
+            if debug: showImageSet([img_reproj_bk,img_cam1_color_bk , img_reproj_wh , img_cam1_color_wh],["front_bk","back_bk" , "front_wh" , "back_wh"])
 
             #  folders to be saved on 
             save_path = self.config.strFilterFullPath 
-            save_train_folder_path , save_target_folder_path = os.path.join(save_path,"train"), os.path.join(save_path,"target")
-            
-            # name of the file
-            save_target_file_name , save_train_file_name = os.path.join(save_target_folder_path,"label{}.png".format(i)) , os.path.join(save_train_folder_path,"train{}.png".format(i))
-            
+            save_path_bk = self.config.strFilterFullPathBlack
+            check_folders(save_path_bk)
             if save: 
-                cv2.imwrite(save_target_file_name,img_reproj)
-                cv2.imwrite(save_train_file_name,image_cam1_color)
+                self.save(save_path , i , img_cam1_color_wh , img_reproj_wh)
+                self.save(save_path_bk , i , img_cam1_color_bk , img_reproj_bk)
             
             end =time()
             time_taken =  round (end - start ,2)
             # print("Saving train and target at frame {} and Taken:{} ms".format(i,time_taken),end="\r")
-            
+
+    def save(self,save_path, index , train , label ):
+        save_train_folder_path , save_target_folder_path = os.path.join(save_path,"train"), os.path.join(save_path,"target")
+        
+        check_folders(save_train_folder_path )
+        check_folders(save_target_folder_path )
+
+        save_target_file_name  = os.path.join(
+            save_target_folder_path,
+            "label{}.png".format(index)) 
+        save_train_file_name = os.path.join(
+            save_train_folder_path,
+            "train{}.png".format(index))
+
+        cv2.imwrite(save_target_file_name,label)
+        cv2.imwrite(save_train_file_name ,train)
+    
 
     # helper func for gettin rgb an d
     def get_rgbd(self,cam,frame_num):
