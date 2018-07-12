@@ -291,7 +291,6 @@ def get_nb_patch(img_dim, patch_size):
 def get_disc_batch(X, y, generator_model, batch_counter, patch_size,
                    image_data_format, label_smoothing=False, label_flipping=0):
 
-    generator_model.train_on_batch(X,y)
     # Create X_disc: alternatively only generated or real images
     if batch_counter % 2 == 0:
         # Produce an output
@@ -318,7 +317,7 @@ def get_disc_batch(X, y, generator_model, batch_counter, patch_size,
                 y_disc[:, [0, 1]] = y_disc[:, [1, 0]]
 
     # Now extract patches form X_disc
-    X_disc = extract_patches(X_disc, image_data_format, patch_size)
+    X_disc = extract_patches(X_disc, patch_size)
 
     return X_disc, y_disc
 

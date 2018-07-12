@@ -82,6 +82,9 @@ class data_model(object):
     def load_data(self):
         train, target= os.listdir(self.train_dir), os.listdir(self.target_dir)
         # load all of the images
+        train = sorted(train, key=alphanum_key )
+        target = sorted(target, key=alphanum_key )
+        
         self.data['X'] = [ read_img(self.train_dir,img , self.img_shape) for img in train ]
         self.data['y'] = [ read_img(self.target_dir,img, self.img_shape ) for img in target ]
         
