@@ -13,11 +13,18 @@ import matplotlib.pyplot as plt
 sys.path.insert(0,"..")
 from utils import * 
 
+# def normalization(X):
+#     return X / 127.5 - 1
+
+# def inverse_normalization(X):
+#     return (X + 1.) / 2.
+
+
 def normalization(X):
-    return X / 127.5 - 1
+    return X / 255
 
 def inverse_normalization(X):
-    return (X + 1.) / 2.
+    return X * 255
 
 def minb_disc(x):
     diffs = K.expand_dims(x, 3) - K.expand_dims(K.permute_dimensions(x, [1, 2, 0]), 0)
