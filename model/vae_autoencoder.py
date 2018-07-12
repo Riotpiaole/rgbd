@@ -13,11 +13,11 @@ import sys , os
 sys.path.append("..") 
 from utils import * 
 from model import data_model 
-
+from keras.optimizers import Adam
 
 
 class VAEAutoEncoder(data_model):
-    def __init__(self , title="VAE_auto" , model_name ="vae_autoencoder" , img_shape=( 128 , 128 ,3 ) , batch_size=50):
+    def __init__(self , title="VAE_auto" , model_name ="vae_autoencoder_batch10" , img_shape=( 128 , 128 ,3 ) , batch_size=10):
         data_model.__init__(self , title ,model_name,
                                 img_shape=img_shape,
                                 epochs=100,
@@ -39,6 +39,9 @@ class VAEAutoEncoder(data_model):
         num_conv = 3
         batch_size = 256
         # sampling layer
+        optmizer = Adam(lr=0.0001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
+
+
         def sampling(args):
             z_mean, z_log_var = args
             epsilon = K.random_normal(shape=(K.shape(z_mean)[0], latent_dim),
@@ -113,7 +116,7 @@ class VAEAutoEncoder(data_model):
         
         with tf.name_scope("TrainOps"):
             vae = Model(x, decoder_mean_squash)
-            vae.compile(optimizer='adam', loss="categorical_crossentropy")
+            vae.compile(optimizer=optmizer, loss="categorical_crossentropy")
         
         self.model = vae 
         vae.summary()
@@ -132,3 +135,4 @@ class VAEAutoEncoder(data_model):
 if __name__ == "__main__":
     model = VAEAutoEncoder()    
     model.train()
+    model.test_img()

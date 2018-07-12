@@ -26,7 +26,7 @@ def write_log(callback , names , logs , batch_no):
         summary_value = summary.value.add()
 
 class  K_DCGAN(data_model):
-    def __init__( self  ,flag = "upsample" , epoch=100000,img_shape = [256,256,3]):
+    def __init__( self  ,flag = "upsample" , epoch=100000,img_shape = [128,128,3]):
         data_model.__init__(self,"K_DCGAN_dim_128","DCGAN",img_shape=img_shape,epochs=epoch)
         # training params 
         self.patch_size = [64,64]
@@ -163,9 +163,9 @@ class  K_DCGAN(data_model):
                                                     ("G logloss", gen_loss[2])])
                     if batch_counter % (n_batch_per_epoch / 2) == 0:
                         # Get new images from validation
-                        plot_generated_batch(X, y, self.generator,self.batch_size, "channels_last", "training",self.title)
+                        plot_generated_batch(X, y, self.generator,self.batch_size, "channels_last", "training",self.title,self)
                         X_test, y_test = next(self.gen_batch(self.batch_size , validation=True)) # get next validation batches
-                        plot_generated_batch(X_test, y_test, self.generator,self.batch_size, "channels_last", "validation",self.title)
+                        plot_generated_batch(X_test, y_test, self.generator,self.batch_size, "channels_last", "validation",self.title,self)
 
                     if batch_counter >= n_batch_per_epoch:
                         break

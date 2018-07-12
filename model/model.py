@@ -69,7 +69,7 @@ class data_model(object):
         self.nb_epochs = epochs
         self.img_shape = img_shape 
         self.weight_path = "../log/"+self.title+"/"+self.model_name # dir for weights of dir
-        self.trianed_weight_path = os.path.join(self.weight_path , "%s.h5" %  self.model_name)
+        self.trained_weight_path = os.path.join(self.weight_path , "%s.h5" %  self.model_name)
         if white_bk:
             self.data_dir = "../data/"+strFolderName  # dir for all of the data
         else:
@@ -148,9 +148,9 @@ class data_model(object):
         print("Loading model  from {}".format(self.trained_weight_path) )
 
     def save(self):
-        if not os.path.exists(self.trianed_weight_path):
-            h5py.File(self.trianed_weight_path)
-        self.model.save_weights(self.trianed_weight_path)        
+        if not os.path.exists(self.trained_weight_path):
+            h5py.File(self.trained_weight_path)
+        self.model.save_weights(self.trained_weight_path)        
 
     def test_img(self):
         idx = rnd.choice([ i for i in range(0 , len(self.data['X']) )]) # pick a random index
