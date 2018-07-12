@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 sys.path.insert(0,"..")
 from utils import * 
-
+from model import inverse_normalization , normalization
 # def normalization(X):
 #     return X / 127.5 - 1
 
@@ -20,11 +20,11 @@ from utils import *
 #     return (X + 1.) / 2.
 
 
-def normalization(X):
-    return X / 255
+# def normalization(X):
+#     return X / 255
 
-def inverse_normalization(X):
-    return X * 255
+# def inverse_normalization(X):
+#     return X * 255
 
 def minb_disc(x):
     diffs = K.expand_dims(x, 3) - K.expand_dims(K.permute_dimensions(x, [1, 2, 0]), 0)
@@ -340,14 +340,14 @@ def extract_patches(X , patch_size):
     
     return list_X
 
-def plot_generated_batch(X, y, generator_model, batch_size, image_data_format, suffix,model_name):
+def plot_generated_batch(X, y, generator_model, batch_size, image_data_format, suffix,model_name,self):
 
     # Generate images
     y_gen = generator_model.predict(X)
 
-    y = inverse_normalization(y)
-    X = inverse_normalization(X)
-    y_gen = inverse_normalization(y_gen)
+    y = inverse_normalization(y,self.max , self.min )
+    X = inverse_normalization(X,self.max , self.min )
+    y_gen = inverse_normalization(y_gen,self.max , self.min )
     
     ys = y[:8]
     yg = y_gen[:8]
