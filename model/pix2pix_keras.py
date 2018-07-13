@@ -5,6 +5,8 @@ from keras.models import model_from_json
 import os
 import sys
 from time import time 
+import random as rnd
+
 sys.path.append("../")
 
 import numpy as np
@@ -13,6 +15,7 @@ import h5py ,math
 from keras.utils import generic_utils 
 from keras.optimizers import Adam, SGD
 import keras.backend as K
+from keras.preprocessing import image
 from model import data_model
 from utils import *
 from keras_utils_layers import *
@@ -91,6 +94,26 @@ class  K_DCGAN(data_model):
         self.discriminator.save_weights( self.disc_weights_path , overwrite=True)
         self.DCGAN_model.save_weights(self.DCGAN_weights_path,overwrite=True)
 
+    def test_img(self):
+        idx = rnd.choice([ i for i in range(0 , len(self.data['X']) )]) # pick a random index
+        
+        X , y = self.get_data( idx ) # normalized images
+        self.load()
+                
+        X_pred = self.generator.predict(np.array([X]))
+        X = image.array_to_img(inverse_normalization(X,self.max , self.min))
+        y = image.array_to_img(inverse_normalization(y,self.max , self.min))
+        X_pred = image.array_to_img(inverse_normalization(X_pred[0],self.max , self.min))
+        
+        suffix = "End_test"
+
+        result = np.hstack((X ,y , X_pred))
+        
+        check_folders("../figures/%s" % (self.title) )
+        plt.savefig("../figures/%s/current_batch_%s.png" % (self.title,suffix))
+        plt.imshow(result)
+        plt.axis("off")
+        plt.show()
 
     def load(self):
         '''Load models weight from log/${model_name}'''
@@ -195,7 +218,7 @@ class  K_DCGAN(data_model):
 
 if __name__ == "__main__":
     model = K_DCGAN()
-    model.summary(name="Generator")
-    # model.train(retrain=False)
-
+    # model.summary(name="Generator")
+    model.train(retrain=True)
+    model.test_img()
         
