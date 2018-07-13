@@ -1,23 +1,27 @@
-import tflearn
-import tensorflow as tf 
 import os , cv2 ,sys 
 
+import h5py
+import tflearn
+import tensorflow as tf 
 
 sys.path.insert(0,"..")
 # dir code 
 from model import data_model
-from utils import * 
-from keras.utils import Progbar
+from utils import timeit , training_wrapper ,check_folders
+
 
 # machine learning module 
-from keras.preprocessing import image  
-from keras.layers import Input , Dense , Conv2D , MaxPool2D , UpSampling2D
+
 from keras.models import Model 
-from keras.layers.normalization import BatchNormalization
+from keras.utils import Progbar
+from keras.preprocessing import image  
+
 from keras import backend as K 
-from keras.callbacks import TensorBoard
 from keras.optimizers import RMSprop
-import h5py
+from keras.callbacks import TensorBoard
+from keras.layers.normalization import BatchNormalization
+from keras.layers import Input , Dense , Conv2D , MaxPool2D , UpSampling2D
+
 
 HUBER_DELTA = 0.5
 def smoothL1(y_true, y_pred):
@@ -104,5 +108,5 @@ class conv_autoencoder(data_model):
 
 if __name__ =="__main__":
     model = conv_autoencoder(epochs=100000)
-    model.build()
-    model.train(retrain=True) 
+    # model.build()
+    # model.train(retrain=True) 

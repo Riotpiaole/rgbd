@@ -3,15 +3,17 @@ import matplotlib.pyplot as plt
 from scipy.stats import norm
 import tensorflow as tf 
 import keras
-from keras.layers import Input, Dense, Lambda, Flatten, Reshape, Layer
-from keras.layers import Conv2D, Conv2DTranspose
+
+from keras import metrics
 from keras.models import Model
 from keras import backend as K
-from keras import metrics
 from keras.callbacks  import TensorBoard 
+from keras.layers import Conv2D, Conv2DTranspose
+from keras.layers import Input, Dense, Lambda, Flatten, Reshape, Layer
+
 import sys , os 
 sys.path.append("..") 
-from utils import * 
+from utils import timeit , training_wrapper 
 from model import data_model 
 from keras.optimizers import Adam
 

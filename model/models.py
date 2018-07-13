@@ -1,73 +1,20 @@
 from keras.models import Model
-from keras.layers.core import Flatten, Dense, Dropout, Activation, Lambda, Reshape
-from keras.layers.convolutional import Conv2D, Conv2DTranspose, ZeroPadding2D, UpSampling2D 
-from keras.layers import Input, Concatenate
-from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.normalization import BatchNormalization
-from keras.layers.pooling import MaxPooling2D
-import keras.backend as K
 import numpy as np
 import sys , os 
-import matplotlib.pyplot as plt
+
+from keras.layers.core import Flatten, Dense, Dropout, Activation, Lambda, Reshape
+from keras.layers.convolutional import Conv2D, Conv2DTranspose, UpSampling2D 
+from keras.layers.advanced_activations import LeakyReLU
+from keras.layers.normalization import BatchNormalization
+from keras.layers import Input, Concatenate
+import keras.backend as K
 
 sys.path.insert(0,"..")
-from utils import * 
+from utils import *
 from model import inverse_normalization , normalization
-# def normalization(X):
-#     return X / 127.5 - 1
-
-# def inverse_normalization(X):
-#     return (X + 1.) / 2.
-
-
-# def normalization(X):
-#     return X / 255
-
-# def inverse_normalization(X):
-#     return X * 255
-
-def minb_disc(x):
-    diffs = K.expand_dims(x, 3) - K.expand_dims(K.permute_dimensions(x, [1, 2, 0]), 0)
-    abs_diffs = K.sum(K.abs(diffs), 2)
-    x = K.sum(K.exp(-abs_diffs), 2)
-    return x
-
-
-def lambda_output(input_shape):
-    return input_shape[:2]
-
-
-def conv_block_unet(x, f, name, bn_mode, bn_axis, bn=True, strides=(2,2)):
-
-    x = LeakyReLU(0.2)(x)
-    x = Conv2D(f, (3, 3), strides=strides, name=name, padding="same")(x)
-    if bn: x = BatchNormalization(axis=bn_axis)(x)
-
-    return x
-
-
-def up_conv_block_unet(x, x2, f, name, bn_mode, bn_axis, bn=True, dropout=False):
-    x = Activation("relu")(x)
-    x = UpSampling2D(size=(2, 2))(x)
-    x = Conv2D(f, (3, 3), name=name, padding="same")(x)
-    if bn:
-        x = BatchNormalization(axis=bn_axis)(x)
-    if dropout:
-        x = Dropout(0.5)(x)
-    x = Concatenate(axis=bn_axis)([x, x2])
-
-    return x
-
-
-def deconv_block_unet(x, x2, f, h, w, batch_size, name, bn_mode, bn_axis, bn=True, dropout=False):
-    o_shape = (batch_size, h * 2, w * 2, f)
-    x = Conv2DTranspose(f, (3, 3), output_shape=o_shape, strides=(2, 2), padding="same")(x)
-    if bn:
-        x = BatchNormalization(axis=bn_axis)(x)
-    if dropout:
-        x = Dropout(0.5)(x)
-    x = Concatenate(axis=bn_axis)([x, x2])
-    return x
+from layers import  (
+    conv_block_unet , deconv_block_unet ,
+    up_conv_block_unet, lambda_output , minb_disc)
 
 
 def generator_unet_upsampling(img_dim, bn_mode, model_name="generator_unet_upsampling"):
@@ -275,96 +222,3 @@ def DCGAN(generator, discriminator_model, img_dim, patch_size, image_dim_orderin
                   name="DCGAN")
 
     return DCGAN
-
-
-def get_nb_patch(img_dim, patch_size):
-    assert img_dim[0] % patch_size[0] == 0, "patch_size does not divide height"
-    assert img_dim[1] % patch_size[1] == 0, "patch_size does not divide width"
-    nb_patch = (img_dim[0] // patch_size[0]) * (img_dim[1] // patch_size[1])
-    img_dim_disc = (patch_size[0], patch_size[1], img_dim[-1])
-
-    return nb_patch, img_dim_disc
-
-
-def get_disc_batch(X, y, generator_model, batch_counter, patch_size,
-                   image_data_format, label_smoothing=False, label_flipping=0):
-
-    # Create X_disc: alternatively only generated or real images
-    if batch_counter % 2 == 0:
-        # Produce an output
-        X_disc = generator_model.predict(X)
-        y_disc = np.zeros((X_disc.shape[0], 2), dtype=np.uint8)
-        y_disc[:, 0] = 1
-
-        if label_flipping > 0:
-            p = np.random.binomial(1, label_flipping)
-            if p > 0:
-                y_disc[:, [0, 1]] = y_disc[:, [1, 0]]
-
-    else:
-        X_disc = y
-        y_disc = np.zeros((X_disc.shape[0], 2), dtype=np.uint8)
-        if label_smoothing:
-            y_disc[:, 1] = np.random.uniform(low=0.9, high=1, size=y_disc.shape[0])
-        else:
-            y_disc[:, 1] = 1
-
-        if label_flipping > 0:
-            p = np.random.binomial(1, label_flipping)
-            if p > 0:
-                y_disc[:, [0, 1]] = y_disc[:, [1, 0]]
-
-    # Now extract patches form X_disc
-    X_disc = extract_patches(X_disc, patch_size)
-
-    return X_disc, y_disc
-
-def gen_batch(X1, X2, batch_size):
-
-    while True:
-        idx = np.random.choice(X1.shape[0], batch_size, replace=False)
-        yield X1[idx], X2[idx]
-
-
-def extract_patches(X , patch_size):
-    list_X = []
-    list_row_idx = [(i * patch_size[0], (i + 1) * patch_size[0]) for i in range(X.shape[1] // patch_size[0])]
-    list_col_idx = [(i * patch_size[1], (i + 1) * patch_size[1]) for i in range(X.shape[2] // patch_size[1])]
-
-    for row_idx in list_row_idx:
-        for col_idx in list_col_idx:
-            list_X.append(X[:, row_idx[0]:row_idx[1], col_idx[0]:col_idx[1], :])
-    
-    return list_X
-
-def plot_generated_batch(X, y, generator_model, batch_size, image_data_format, suffix,model_name,self):
-
-    # Generate images
-    y_gen = generator_model.predict(X)
-
-    y = inverse_normalization(y,self.max , self.min )
-    X = inverse_normalization(X,self.max , self.min )
-    y_gen = inverse_normalization(y_gen,self.max , self.min )
-    
-    ys = y[:8]
-    yg = y_gen[:8]
-    Xr = X[:8]
-
-    if image_data_format == "channels_last":
-        X = np.concatenate((ys, yg, Xr), axis=0)        
-        list_rows = []
-        for i in range(int(X.shape[0] // 4)):
-            Xr = np.concatenate([X[k] for k in range(4 * i, 4 * (i + 1))], axis=1)
-            list_rows.append(Xr)
-
-        Xr = np.concatenate(list_rows, axis=0)
-
-    if Xr.shape[-1] == 1:
-        plt.imshow(Xr[:, :, 0], cmap="gray")
-    else:
-        plt.imshow(Xr)     
-    plt.axis("off")
-    check_folders("../figures/%s" % (model_name) )
-    plt.savefig("../figures/%s/current_batch_%s.png" % (model_name,suffix))
-    plt.clf()
-    plt.close()

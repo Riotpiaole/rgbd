@@ -1,7 +1,3 @@
-from keras_utils_layers import generator_unet_deconv , generator_unet_upsampling # Generator 
-from keras_utils_layers import DCGAN , DCGAN_discriminator # Discriminator 
-from keras_utils_layers import get_nb_patch
-from keras.models import model_from_json
 import os
 import sys
 from time import time 
@@ -9,24 +5,24 @@ import random as rnd
 
 sys.path.append("../")
 
+import h5py ,math
 import numpy as np
 import tensorflow as tf
-import h5py ,math
-from keras.utils import generic_utils 
-from keras.optimizers import Adam, SGD
+import matplotlib.pyplot as plt 
+
+# keras module 
 import keras.backend as K
+from keras.optimizers import Adam
+from keras.utils import generic_utils 
 from keras.preprocessing import image
-from model import data_model
-from utils import *
-from keras_utils_layers import *
+
+# internal module 
+from model import data_model ,inverse_normalization 
+from models import generator_unet_deconv, DCGAN_discriminator, DCGAN
+from utils import timeit , check_folders  ,plot_generated_batch ,get_nb_patch
 
 def l1_loss(y_true , y_pred):
     return K.sum( K.abs( y_pred  - y_true), axis=-1)
-
-def write_log(callback , names , logs , batch_no):
-    for name , value in zip(names,logs):
-        summary = tf.Summary()
-        summary_value = summary.value.add()
 
 class  K_DCGAN(data_model):
     def __init__( self  ,flag = "upsample" , epoch=100000,img_shape = [128,128,3]):
@@ -65,7 +61,7 @@ class  K_DCGAN(data_model):
 
         self.discriminator.trainable = True
         self.discriminator.compile(loss="binary_crossentropy",optimizer=opt_discriminator)        
-    
+
     def log_checkpoint(self,epoch , batch, loss):
         log_path =os.path.join(self.weight_path , "checkpoint")
         
@@ -84,7 +80,7 @@ class  K_DCGAN(data_model):
                 batch ))
             f.write( "\n")
             f.write( "Losses: {}".format( loss ))
-
+   
     def save(self):
         if not os.path.exists(self.gen_weights_path):
             h5py.File(self.gen_weights_path)
@@ -209,8 +205,7 @@ class  K_DCGAN(data_model):
         except KeyboardInterrupt:
             print("\nInterruption occured.... Saving the model Epochs:{}".format(e))
             self.save()
-            self.log_checkpoint(e , batch_counter , 
-                                                    [("D logloss", disc_loss),
+            self.log_checkpoint(e , batch_counter , [("D logloss", disc_loss),
                                                     ("G tot", gen_loss[0]),
                                                     ("G L1", gen_loss[1]),
                                                     ("G logloss", gen_loss[2])])
@@ -219,6 +214,5 @@ class  K_DCGAN(data_model):
 if __name__ == "__main__":
     model = K_DCGAN()
     # model.summary(name="Generator")
-    model.train(retrain=True)
-    model.test_img()
+    # model.test_img()
         

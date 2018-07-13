@@ -5,47 +5,23 @@ import random as rnd
 
 sys.path.insert(0,"..")
 
-from utils import *
-from config import strFolderName ,strFolderNameBlack
+import h5py
+from utils import (
+    timeit , 
+    read_img,
+    bgr_to_rgb ,
+    rgb_to_bgr ,
+    check_folders,
+    alphanum_key , 
+    normalization ,
+    extract_patches ,
+    inverse_normalization , 
+    
+)
+from functools import wraps
 import matplotlib.pyplot as plt
 from keras.preprocessing import image
-from functools import wraps
-import h5py
-
-
-def extract_patches(X , patch_size):
-    list_X = []
-    list_row_idx = [(i * patch_size[0], (i + 1) * patch_size[0]) for i in range(X.shape[1] // patch_size[0])]
-    list_col_idx = [(i * patch_size[1], (i + 1) * patch_size[1]) for i in range(X.shape[2] // patch_size[1])]
-
-    for row_idx in list_row_idx:
-        for col_idx in list_col_idx:
-            list_X.append(X[:, row_idx[0]:row_idx[1], col_idx[0]:col_idx[1], :])
-    
-    return list_X
-
-def bgr_to_rgb(img):
-    b , g , r =  np.dsplit((img),3)
-    return np.dstack((r,g,b))
-
-def rgb_to_bgr(img):
-    r , g , b = np.dsplit((img),3)
-    return np.dstack((b,g,r))
-
-def normalization(arr , arr_max , arr_min): # normalized between 0 and 1 
-    result = (arr - arr_min)/(arr_max - arr_min)
-    return result.astype(np.float64)
-
-def inverse_normalization(arr , arr_max , arr_min):
-    result = (arr_max - arr_min) * ( arr ) + arr_min
-    return result.astype(np.uint8)
-
-def read_img(filedir,name,img_shape):
-    img_shape = ( img_shape[0] ,img_shape[1])
-    img = cv2.imread(os.path.join(filedir,name),-1).astype(np.float64)
-    resize_img = cv2.resize(img, img_shape)
-    resize_img = bgr_to_rgb(resize_img)
-    return resize_img
+from config import strFolderName ,strFolderNameBlack
 
 class data_model(object):
     def __init__(self,title,model_name,img_shape =( 256 ,256 ,3 ),epochs=100,batch_size = 2 , white_bk=False ):
@@ -53,14 +29,6 @@ class data_model(object):
         Loading all of the image from `../data` to self.data
             self.data['X']: front image 
             self.data['y']: back image 
-    
-        Required  
-            Implements -> self.trained_weight_path 
-                       -> self.tensorboard_path
-
-        Arguments:
-            
-
         '''
         
         self.title = title
