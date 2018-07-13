@@ -40,7 +40,7 @@ class  K_DCGAN(data_model):
         check_folders(self.weight_path)
     
     def build(self, img_shape):
-        self.generator = generator_unet_upsampling(img_shape , 2 , 
+        self.generator = generator_unet_deconv(img_shape , 2 ,  self.batch_size,
             model_name="generator_unet_upsampling")
             
         nb_patch , img_shape_disc = get_nb_patch(img_shape ,self.patch_size)
@@ -48,7 +48,7 @@ class  K_DCGAN(data_model):
         self.discriminator = DCGAN_discriminator(img_shape_disc ,nb_patch,2,
                 model_name="DCGAN_discriminator")
         
-        opt_dcgan, opt_discriminator = Adam(epsilon=1e-08) ,Adam(epsilon=1e-08)
+        opt_dcgan, opt_discriminator = Adam(lr=0.0001,epsilon=1e-08) ,Adam(lr=0.0001,epsilon=1e-08)
          
         self.generator.compile(loss="categorical_crossentropy" , optimizer=opt_discriminator)
         self.discriminator.trainable =False
@@ -195,6 +195,7 @@ class  K_DCGAN(data_model):
 
 if __name__ == "__main__":
     model = K_DCGAN()
-    model.train(retrain=False)
+    model.summary(name="Generator")
+    # model.train(retrain=False)
 
         

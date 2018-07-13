@@ -1,6 +1,6 @@
 from keras.models import Model
 from keras.layers.core import Flatten, Dense, Dropout, Activation, Lambda, Reshape
-from keras.layers.convolutional import Conv2D, Deconv2D, ZeroPadding2D, UpSampling2D
+from keras.layers.convolutional import Conv2D, Conv2DTranspose, ZeroPadding2D, UpSampling2D 
 from keras.layers import Input, Concatenate
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.normalization import BatchNormalization
@@ -61,7 +61,7 @@ def up_conv_block_unet(x, x2, f, name, bn_mode, bn_axis, bn=True, dropout=False)
 
 def deconv_block_unet(x, x2, f, h, w, batch_size, name, bn_mode, bn_axis, bn=True, dropout=False):
     o_shape = (batch_size, h * 2, w * 2, f)
-    x = Deconv2D(f, (3, 3), output_shape=o_shape, strides=(2, 2), padding="same")(x)
+    x = Conv2DTranspose(f, (3, 3), output_shape=o_shape, strides=(2, 2), padding="same")(x)
     if bn:
         x = BatchNormalization(axis=bn_axis)(x)
     if dropout:
@@ -110,15 +110,13 @@ def generator_unet_upsampling(img_dim, bn_mode, model_name="generator_unet_upsam
     x = Activation("relu")(list_decoder[-1])
     x = UpSampling2D(size=(2, 2))(x)
     x = Conv2D(nb_channels, (3, 3), name="last_conv", padding="same")(x)
-    x = Activation("tanh")(x)
+    x = Activation("relu")(x)
 
     generator_unet = Model(inputs=[unet_input], outputs=[x])
     return generator_unet
 
 
 def generator_unet_deconv(img_dim, bn_mode, batch_size, model_name="generator_unet_deconv"):
-
-    assert K.backend(extract_patches) == "tensorflow", "Not implemented with theano backend"
     
     nb_filters = 64
     bn_axis = -1
@@ -165,9 +163,9 @@ def generator_unet_deconv(img_dim, bn_mode, batch_size, model_name="generator_un
         h, w = h * 2, w * 2
 
     x = Activation("relu")(list_decoder[-1])
-    o_shape = (batch_size,) + img_dim
-    x = Deconv2D(nb_channels, (3, 3), output_shape=o_shape, strides=(2, 2), padding="same")(x)
-    x = Activation("tanh")(x)
+    o_shape = [ batch_size , img_dim[0] , img_dim[1] , img_dim[2]]
+    x = Conv2DTranspose(nb_channels, (3, 3), output_shape=o_shape, strides=(2, 2), padding="same")(x)
+    x = Activation("relu")(x)
 
     generator_unet = Model(inputs=[unet_input], outputs=[x])
 
