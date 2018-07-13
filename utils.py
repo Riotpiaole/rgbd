@@ -1,14 +1,14 @@
+import os
 import sys
 from os import listdir, makedirs
 from os.path import isfile, join, exists
-import os
 import shutil
 import numpy as np
 
 import math
 import random
 import re , cv2 , sys
-
+import matplotlib.pyplot as plt 
 
 def break_point():
     sys.exit(0)
@@ -214,5 +214,120 @@ def training_wrapper(func):
     return innerwrapper
 
 
-if __name__ == "__main__":
-    check_folders('../figures/K_DCGAN_dim_128')
+
+def get_nb_patch(img_dim, patch_size):
+    assert img_dim[0] % patch_size[0] == 0, "patch_size does not divide height"
+    assert img_dim[1] % patch_size[1] == 0, "patch_size does not divide width"
+    nb_patch = (img_dim[0] // patch_size[0]) * (img_dim[1] // patch_size[1])
+    img_dim_disc = (patch_size[0], patch_size[1], img_dim[-1])
+
+    return nb_patch, img_dim_disc
+
+
+def get_disc_batch(X, y, generator_model, batch_counter, patch_size,
+                   image_data_format, label_smoothing=False, label_flipping=0):
+
+    # Create X_disc: alternatively only generated or real images
+    if batch_counter % 2 == 0:
+        # Produce an output
+        X_disc = generator_model.predict(X)
+        y_disc = np.zeros((X_disc.shape[0], 2), dtype=np.uint8)
+        y_disc[:, 0] = 1
+
+        if label_flipping > 0:
+            p = np.random.binomial(1, label_flipping)
+            if p > 0:
+                y_disc[:, [0, 1]] = y_disc[:, [1, 0]]
+
+    else:
+        X_disc = y
+        y_disc = np.zeros((X_disc.shape[0], 2), dtype=np.uint8)
+        if label_smoothing:
+            y_disc[:, 1] = np.random.uniform(low=0.9, high=1, size=y_disc.shape[0])
+        else:
+            y_disc[:, 1] = 1
+
+        if label_flipping > 0:
+            p = np.random.binomial(1, label_flipping)
+            if p > 0:
+                y_disc[:, [0, 1]] = y_disc[:, [1, 0]]
+
+    # Now extract patches form X_disc
+    X_disc = extract_patches(X_disc, patch_size)
+
+    return X_disc, y_disc
+
+def gen_batch(X1, X2, batch_size):
+
+    while True:
+        idx = np.random.choice(X1.shape[0], batch_size, replace=False)
+        yield X1[idx], X2[idx]
+
+
+def extract_patches(X , patch_size):
+    list_X = []
+    list_row_idx = [(i * patch_size[0], (i + 1) * patch_size[0]) for i in range(X.shape[1] // patch_size[0])]
+    list_col_idx = [(i * patch_size[1], (i + 1) * patch_size[1]) for i in range(X.shape[2] // patch_size[1])]
+
+    for row_idx in list_row_idx:
+        for col_idx in list_col_idx:
+            list_X.append(X[:, row_idx[0]:row_idx[1], col_idx[0]:col_idx[1], :])
+    
+    return list_X
+
+def plot_generated_batch(X, y, generator_model, batch_size, image_data_format, suffix,model_name,self):
+
+    # Generate images
+    y_gen = generator_model.predict(X)
+
+    y = inverse_normalization(y,self.max , self.min )
+    X = inverse_normalization(X,self.max , self.min )
+    y_gen = inverse_normalization(y_gen,self.max , self.min )
+    
+    ys = y[:8]
+    yg = y_gen[:8]
+    Xr = X[:8]
+
+    if image_data_format == "channels_last":
+        X = np.concatenate((ys, yg, Xr), axis=0)        
+        list_rows = []
+        for i in range(int(X.shape[0] // 4)):
+            Xr = np.concatenate([X[k] for k in range(4 * i, 4 * (i + 1))], axis=1)
+            list_rows.append(Xr)
+
+        Xr = np.concatenate(list_rows, axis=0)
+
+    if Xr.shape[-1] == 1:
+        plt.imshow(Xr[:, :, 0], cmap="gray")
+    else:
+        plt.imshow(Xr)     
+    plt.axis("off")
+    check_folders("../figures/%s" % (model_name) )
+    plt.savefig("../figures/%s/current_batch_%s.png" % (model_name,suffix))
+    plt.clf()
+    plt.close()
+
+def normalization(arr , arr_max , arr_min): # normalized between 0 and 1 
+    result = (arr - arr_min)/(arr_max - arr_min)
+    return result.astype(np.float64)
+
+def inverse_normalization(arr , arr_max , arr_min):
+    result = (arr_max - arr_min) * ( arr ) + arr_min
+    return result.astype(np.uint8)
+
+def bgr_to_rgb(img):
+    b , g , r =  np.dsplit((img),3)
+    return np.dstack((r,g,b))
+
+def rgb_to_bgr(img):
+    r , g , b = np.dsplit((img),3)
+    return np.dstack((b,g,r))
+
+
+
+def read_img(filedir,name,img_shape):
+    img_shape = ( img_shape[0] ,img_shape[1])
+    img = cv2.imread(os.path.join(filedir,name),-1).astype(np.float64)
+    resize_img = cv2.resize(img, img_shape)
+    resize_img = bgr_to_rgb(resize_img)
+    return resize_img
