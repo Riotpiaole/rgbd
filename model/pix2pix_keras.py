@@ -213,6 +213,6 @@ class  K_DCGAN(data_model):
 
 if __name__ == "__main__":
     model = K_DCGAN()
-    # model.summary(name="Generator")
-    # model.test_img()
+    model.train(retrain=True)
+    model.test_img()
         
