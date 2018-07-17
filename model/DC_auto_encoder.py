@@ -17,19 +17,20 @@ from utils import (
     training_wrapper
 )
 class DeepConvAutoEncoder(data_model ):
-    def __init__( self  ,flag = "deconv" , epoch=100000,img_shape = [256,256,3]):
-        super().__init__(self,
+    def __init__( self , epoch=100000,img_shape = [256,256,3]):
+        super().__init__(
                 "deep_conv_autoencoder",
                 "generator",
-                img_shape=img_shape,
                 epochs=epoch,
                 batch_size=20)
         self.build(self.img_shape)
-        self.n_batch_per_epoch = self.batch_size * 100
+        self.n_batch_per_epoch = 100
         check_folders(self.weight_path)
+
     def build(self,img_shape ):
         self.model = generator_unet_deconv(img_shape , 2 ,  self.batch_size,
             model_name="generator_unet_deconv")
+        opt_discriminator = Adam(lr=0.0001,epsilon=1e-08)
         self.model.compile(loss="categorical_crossentropy" , optimizer=opt_discriminator)
     
     def log_checkpoint(self,epoch , batch, loss):
@@ -55,7 +56,7 @@ class DeepConvAutoEncoder(data_model ):
     def train(self , retrain=False):
         n_batch_per_epoch = self.n_batch_per_epoch
         total_epoch = n_batch_per_epoch * self.batch_size
-
+        gen_loss = 100
         if retrain:
             try:
                 print("Looking for previous model ...")
@@ -65,7 +66,7 @@ class DeepConvAutoEncoder(data_model ):
                 print("No previous model found retraining a new one")
         for e in range( self.nb_epochs):
             batch_counter = 1
-            start = time.now()
+            start = time()
             progbar = generic_utils.Progbar(total_epoch)
             
             for X , y in self.gen_batch(self.batch_size):
@@ -88,11 +89,9 @@ class DeepConvAutoEncoder(data_model ):
             print('Epoch %s/%s, Time: %s ms' % (e + 1, self.nb_epochs, round(t_time,2) ),end="\r")
             if e % 5 == 0: 
                 self.save()
-                self.log_checkpoint(e , batch_counter , 
-                                                [("D logloss", disc_loss),
-                                                ("G tot", gen_loss[0]),
-                                                ("G L1", gen_loss[1]),
-                                                ("G logloss", gen_loss[2])])
+                self.log_checkpoint(e , batch_counter ,[
+                                    ("G loss ", gen_loss ),
+                                    ("G logloss",log_gen_loss)])
 if __name__ == "__main__":
     model = DeepConvAutoEncoder()
     model.train(retrain=False)

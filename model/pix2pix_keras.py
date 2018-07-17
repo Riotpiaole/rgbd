@@ -146,7 +146,7 @@ class  K_DCGAN(data_model):
             os.system("clear")
             for e in range( self.nb_epochs ):
                 batch_counter = 1 
-                start = time.now()
+                start = time()
                 progbar = generic_utils.Progbar(total_epoch)
 
                 for X , y in self.gen_batch(self.batch_size):
