@@ -280,11 +280,15 @@ def plot_generated_batch(X, y, generator_model, batch_size, image_data_format, s
 
     # Generate images
     y_gen = generator_model.predict(X)
-
-    y = inverse_normalization(y,self.max , self.min )
-    X = inverse_normalization(X,self.max , self.min )
-    y_gen = inverse_normalization(y_gen,self.max , self.min )
-    
+    if self.reverse_norm:
+        y = neg_inverse_normalization(y,self.max , self.min )
+        X = neg_inverse_normalization(X,self.max , self.min )
+        y_gen = neg_inverse_normalization(y_gen,self.max , self.min )
+    else:        
+        y = inverse_normalization(y,self.max , self.min )
+        X = inverse_normalization(X,self.max , self.min )
+        y_gen = inverse_normalization(y_gen,self.max , self.min )
+        
     ys = y[:8]
     yg = y_gen[:8]
     Xr = X[:8]

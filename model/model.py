@@ -137,9 +137,16 @@ class data_model(object):
         self.load()
                 
         X_pred = self.model.predict(np.array([X]))
-        X = image.array_to_img(inverse_normalization(X,self.max , self.min))
-        y = image.array_to_img(inverse_normalization(y,self.max , self.min))
-        X_pred = image.array_to_img(inverse_normalization(X_pred[0],self.max , self.min))
+        if self.reverse_norm:
+            X = image.array_to_img(neg_inverse_normalization(X,self.max , self.min))
+            y = image.array_to_img(neg_inverse_normalization(y,self.max , self.min))
+            X_pred = image.array_to_img(neg_inverse_normalization(X_pred[0],self.max , self.min))
+        else:
+            X = image.array_to_img(inverse_normalization(X,self.max , self.min))
+            y = image.array_to_img(inverse_normalization(y,self.max , self.min))
+            X_pred = image.array_to_img(inverse_normalization(X_pred[0],self.max , self.min))
+            
+
         
         suffix = "End_test"
 
