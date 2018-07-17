@@ -36,6 +36,7 @@ class data_model(object):
         self.title = title
         self.model_name = model_name
         self.batch_size = batch_size 
+        self.reverse_norm = reverse_norm
         self.nb_epochs = epochs
         self.img_shape = img_shape 
         self.weight_path = "../log/"+self.title+"/"+self.model_name # dir for weights of dir
@@ -47,7 +48,6 @@ class data_model(object):
         self.target_dir  , self.train_dir = self.data_dir+"/target" , self.data_dir+"/train" 
         self.data = {}
         self.load_data()
-        self.reverse_norm = reverse_norm
 
     @timeit(log_info="Loading Data from dir")
     def load_data(self):

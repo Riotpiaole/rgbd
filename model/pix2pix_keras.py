@@ -26,7 +26,7 @@ def l1_loss(y_true , y_pred):
 
 class  K_DCGAN(data_model):
     def __init__( self  ,flag = "deconv" , epoch=100000,img_shape = [256,256,3]):
-        data_model.__init__(self,"K_DCGAN_dim_256","DCGAN",img_shape=img_shape,epochs=epoch)
+        data_model.__init__(self,"K_DCGAN_dim_256_norm","DCGAN_reverse_norm",img_shape=img_shape,epochs=epoch)
         # training params 
         self.patch_size = [64,64]
         self.n_batch_per_epoch = self.batch_size * 100
@@ -210,6 +210,6 @@ class  K_DCGAN(data_model):
 
 if __name__ == "__main__":
     model = K_DCGAN()
-    model.train(retrain=True)
+    model.train(retrain=False)
     model.test_img()
         

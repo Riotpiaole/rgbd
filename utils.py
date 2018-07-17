@@ -318,7 +318,6 @@ def inverse_normalization(arr , arr_max , arr_min):
 
 
 def neg_normalization(arr , arr_max , arr_min): # normalized between 0 and 1 
-    arr = arr.astype( np.float64 )
     result = (2*(arr - arr_min)/(arr_max - arr_min)) -1
     return result.astype(np.float64)
 
