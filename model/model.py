@@ -26,7 +26,7 @@ from keras.preprocessing import image
 from config import strFolderName ,strFolderNameBlack
 
 class data_model(object):
-    def __init__(self,title,model_name,img_shape =( 256 ,256 ,3 ), epochs=100 , batch_size = 2 , white_bk=False , reverse_norm = True  ):
+    def __init__(self,title,model_name,img_shape =( 256 ,256 ,3 ), epochs=100 , batch_size = 2 , white_bk=False , reverse_norm = False  ):
         '''data_model
         Loading all of the image from `../data` to self.data
             self.data['X']: front image 
@@ -87,7 +87,6 @@ class data_model(object):
         generator.train_on_batch(X,y)
         y_disc = np.zeros((X.shape[0],2), dtype=np.uint8)
         if batch_counter % 2 == 0:
-            # X_disc = generator.predict(X)
             X_disc = generator.predict(X)
             y_disc[:,0 ]=1
         

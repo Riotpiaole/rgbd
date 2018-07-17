@@ -26,7 +26,7 @@ def l1_loss(y_true , y_pred):
 
 class  K_DCGAN(data_model):
     def __init__( self  ,flag = "deconv" , epoch=100000,img_shape = [256,256,3]):
-        data_model.__init__(self,"K_DCGAN_dim_256_norm","DCGAN_reverse_norm",img_shape=img_shape,epochs=epoch)
+        data_model.__init__(self,"K_DCGAN_dim_256_relu","DCGAN",img_shape=img_shape,epochs=epoch)
         # training params 
         self.patch_size = [64,64]
         self.n_batch_per_epoch = self.batch_size * 100
@@ -40,7 +40,7 @@ class  K_DCGAN(data_model):
     
     def build(self, img_shape):
         self.generator = generator_unet_deconv(img_shape , 2 ,  self.batch_size,
-            model_name="generator_unet_deconv")
+            model_name="generator_unet_deconv",activation="relu")
             
         nb_patch , img_shape_disc = get_nb_patch(img_shape ,self.patch_size)
 
@@ -136,11 +136,13 @@ class  K_DCGAN(data_model):
         gen_loss, disc_loss  = 100 , 100
         n_batch_per_epoch = self.n_batch_per_epoch
         total_epoch = n_batch_per_epoch * self.batch_size
-        
-        if retrain:
-            print("Found prev_trained models ...")
-            self.load()
-            print("Retrain the model ")
+        try:
+            if retrain:
+                print("Found prev_trained models ...")
+                self.load()
+                print("Retrain the model ")
+        except FileNotFoundError:
+            print("No previous model found start train a new model")
         
         try:
             os.system("clear")

@@ -16,19 +16,19 @@ def lambda_output(input_shape):
     return input_shape[:2]
 
 
-def conv_block_unet(x, f, name, bn_mode, bn_axis, bn=True, strides=(2,2)):
+def conv_block_unet(x, f, name, bn_mode, bn_axis, bn=True, strides=(2,2),activation=None):
 
     x = LeakyReLU(0.2)(x)
-    x = Conv2D(f, (3, 3), strides=strides, name=name, padding="same")(x)
+    x = Conv2D(f, (3, 3), strides=strides, name=name, padding="same",activation=activation)(x)
     if bn: x = BatchNormalization(axis=bn_axis)(x)
 
     return x
 
 
-def up_conv_block_unet(x, x2, f, name, bn_mode, bn_axis, bn=True, dropout=False):
+def up_conv_block_unet(x, x2, f, name, bn_mode, bn_axis, bn=True, dropout=False,activation=None):
     x = Activation("relu")(x)
     x = UpSampling2D(size=(2, 2))(x)
-    x = Conv2D(f, (3, 3), name=name, padding="same")(x)
+    x = Conv2D(f, (3, 3), name=name, padding="same",activation=activation)(x)
     if bn:
         x = BatchNormalization(axis=bn_axis)(x)
     if dropout:
@@ -38,9 +38,9 @@ def up_conv_block_unet(x, x2, f, name, bn_mode, bn_axis, bn=True, dropout=False)
     return x
 
 
-def deconv_block_unet(x, x2, f, h, w, batch_size, name, bn_mode, bn_axis, bn=True, dropout=False):
+def deconv_block_unet(x, x2, f, h, w, batch_size, name, bn_mode, bn_axis, bn=True, dropout=False, activation=None):
     o_shape = (batch_size, h * 2, w * 2, f)
-    x = Conv2DTranspose(f, (3, 3), output_shape=o_shape, strides=(2, 2), padding="same")(x)
+    x = Conv2DTranspose(f, (3, 3), output_shape=o_shape, strides=(2, 2), padding="same", activation=activation)(x)
     if bn:
         x = BatchNormalization(axis=bn_axis)(x)
     if dropout:
