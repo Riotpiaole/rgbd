@@ -316,6 +316,17 @@ def inverse_normalization(arr , arr_max , arr_min):
     result = (arr_max - arr_min) * ( arr ) + arr_min
     return result.astype(np.uint8)
 
+
+def neg_normalization(arr , arr_max , arr_min): # normalized between 0 and 1 
+    arr = arr.astype( np.float64 )
+    result = (2*(arr - arr_min)/(arr_max - arr_min)) -1
+    return result.astype(np.float64)
+
+def neg_inverse_normalization(arr , arr_max , arr_min):
+    result = (1/2*(arr + 1 ))*(arr_max - arr_min) + arr_min 
+    return result.astype(np.uint8)
+
+
 def bgr_to_rgb(img):
     b , g , r =  np.dsplit((img),3)
     return np.dstack((r,g,b))

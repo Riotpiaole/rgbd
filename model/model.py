@@ -15,16 +15,18 @@ from utils import (
     alphanum_key , 
     normalization ,
     extract_patches ,
-    inverse_normalization , 
-    
+    neg_normalization , 
+    inverse_normalization ,
+    neg_inverse_normalization
 )
+
 from functools import wraps
 import matplotlib.pyplot as plt
 from keras.preprocessing import image
 from config import strFolderName ,strFolderNameBlack
 
 class data_model(object):
-    def __init__(self,title,model_name,img_shape =( 256 ,256 ,3 ),epochs=100,batch_size = 2 , white_bk=False ):
+    def __init__(self,title,model_name,img_shape =( 256 ,256 ,3 ), epochs=100 , batch_size = 2 , white_bk=False , reverse_norm = True  ):
         '''data_model
         Loading all of the image from `../data` to self.data
             self.data['X']: front image 
@@ -45,6 +47,7 @@ class data_model(object):
         self.target_dir  , self.train_dir = self.data_dir+"/target" , self.data_dir+"/train" 
         self.data = {}
         self.load_data()
+        self.reverse_norm = reverse_norm
 
     @timeit(log_info="Loading Data from dir")
     def load_data(self):
@@ -60,8 +63,12 @@ class data_model(object):
         self.max = np.max(entire_samples)
         self.min = np.min(entire_samples)
 
-        self.data['X'] = normalization(self.data['X'],self.max , self.min)
-        self.data['y'] = normalization(self.data['y'],self.max , self.min)
+        if self.reverse_norm:
+            self.data['X'] = neg_normalization(self.data['X'],self.max , self.min)
+            self.data['y'] = neg_normalization(self.data['y'],self.max , self.min)
+        else:
+            self.data['X'] = normalization(self.data['X'],self.max , self.min)
+            self.data['y'] = normalization(self.data['y'],self.max , self.min)
 
         num_of_sample = math.floor(.2 * len(self.data['X'])) # 20 % of validation sample 
         self.validation= { 'X': np.array(self.data['X'][:num_of_sample]) , 'y':np.array(self.data['y'][:num_of_sample])}
