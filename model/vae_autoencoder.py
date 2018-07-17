@@ -13,7 +13,7 @@ from keras.layers import Input, Dense, Lambda, Flatten, Reshape, Layer
 
 import sys , os 
 sys.path.append("..") 
-from utils import timeit , training_wrapper 
+from utils import timeit , training_wrapper , check_folders
 from model import data_model 
 from keras.optimizers import Adam
 

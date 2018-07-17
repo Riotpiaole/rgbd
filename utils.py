@@ -194,6 +194,7 @@ def training_wrapper(func):
     def innerwrapper(*args , **kwargs):
         result = -1
         try:
+            os.system("clear") # for linux and mac only
             print("")
             print("====================================================================================================")
             print("Start training.")

@@ -25,7 +25,7 @@ def l1_loss(y_true , y_pred):
     return K.sum( K.abs( y_pred  - y_true), axis=-1)
 
 class  K_DCGAN(data_model):
-    def __init__( self  ,flag = "upsample" , epoch=100000,img_shape = [256,256,3]):
+    def __init__( self  ,flag = "deconv" , epoch=100000,img_shape = [256,256,3]):
         data_model.__init__(self,"K_DCGAN_dim_256","DCGAN",img_shape=img_shape,epochs=epoch)
         # training params 
         self.patch_size = [64,64]
@@ -40,7 +40,7 @@ class  K_DCGAN(data_model):
     
     def build(self, img_shape):
         self.generator = generator_unet_deconv(img_shape , 2 ,  self.batch_size,
-            model_name="generator_unet_upsampling")
+            model_name="generator_unet_deconv")
             
         nb_patch , img_shape_disc = get_nb_patch(img_shape ,self.patch_size)
 
@@ -146,10 +146,8 @@ class  K_DCGAN(data_model):
             os.system("clear")
             for e in range( self.nb_epochs ):
                 batch_counter = 1 
-                start =time()
+                start = time.now()
                 progbar = generic_utils.Progbar(total_epoch)
-                batch_counter = 1
-                start = time()
 
                 for X , y in self.gen_batch(self.batch_size):
                     
@@ -187,8 +185,7 @@ class  K_DCGAN(data_model):
                         plot_generated_batch(X_test, y_test, self.generator,self.batch_size, "channels_last", "validation",self.title,self)
 
                     if batch_counter >= n_batch_per_epoch:
-                        break
-                    e_ptr = e 
+                        break 
 
                 print("")
                 t_time =time() - start
