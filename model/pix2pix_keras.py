@@ -25,8 +25,8 @@ def l1_loss(y_true , y_pred):
     return K.sum( K.abs( y_pred  - y_true), axis=-1)
 
 class  K_DCGAN(data_model):
-    def __init__( self  ,flag = "upsample" , epoch=100000,img_shape = [128,128,3]):
-        data_model.__init__(self,"K_DCGAN_dim_128","DCGAN",img_shape=img_shape,epochs=epoch)
+    def __init__( self  ,flag = "upsample" , epoch=100000,img_shape = [256,256,3]):
+        data_model.__init__(self,"K_DCGAN_dim_256","DCGAN",img_shape=img_shape,epochs=epoch)
         # training params 
         self.patch_size = [64,64]
         self.n_batch_per_epoch = self.batch_size * 100

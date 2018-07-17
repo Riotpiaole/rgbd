@@ -139,8 +139,8 @@ class data_model(object):
         result = np.hstack((X ,y , X_pred))
         
         check_folders("../figures/%s" % (self.title) )
-        plt.savefig("../figures/%s/current_batch_%s.png" % (self.title,suffix))
         plt.imshow(result)
+        plt.savefig("../figures/%s/current_batch_%s.png" % (self.title,suffix))
         plt.axis("off")
         plt.show()
 
