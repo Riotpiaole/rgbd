@@ -8,7 +8,7 @@ import numpy as np
 import math
 import random
 import re , cv2 , sys
-import matplotlib.pyplot as plt 
+# import matplotlib.pyplot as plt 
 
 def break_point():
     sys.exit(0)
@@ -302,15 +302,15 @@ def plot_generated_batch(X, y, generator_model, batch_size, image_data_format, s
 
         Xr = np.concatenate(list_rows, axis=0)
 
-    if Xr.shape[-1] == 1:
-        plt.imshow(Xr[:, :, 0], cmap="gray")
-    else:
-        plt.imshow(Xr)     
-    plt.axis("off")
-    check_folders("../figures/%s" % (model_name) )
-    plt.savefig("../figures/%s/current_batch_%s.png" % (model_name,suffix))
-    plt.clf()
-    plt.close()
+    # if Xr.shape[-1] == 1:
+    #     plt.imshow(Xr[:, :, 0], cmap="gray")
+    # else:
+    #     plt.imshow(Xr)     
+    # plt.axis("off")
+    # check_folders("../figures/%s" % (model_name) )
+    # plt.savefig("../figures/%s/current_batch_%s.png" % (model_name,suffix))
+    # plt.clf()
+    # plt.close()
 
 def normalization(arr , arr_max , arr_min): # normalized between 0 and 1 
     result = (arr - arr_min)/(arr_max - arr_min)
@@ -348,9 +348,10 @@ def rgb_to_bgr(img):
 
 
 
-def read_img(filedir,name,img_shape):
+def read_img(filedir,name,img_shape, blur=True):
     img_shape = ( img_shape[0] ,img_shape[1])
     img = cv2.imread(os.path.join(filedir,name),-1).astype(np.float64)
     resize_img = cv2.resize(img, img_shape)
+    if blur :resize_img = cv2.blur(resize_img , (3,3))
     resize_img = bgr_to_rgb(resize_img)
     return resize_img

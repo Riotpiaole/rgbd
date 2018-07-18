@@ -53,7 +53,7 @@ def click_region_call_bk(event,x,y,flags,param):
     '''
     
     if event == cv2.EVENT_LBUTTONDOWN:
-        if (len(param) != 0 and param[1].frame_num == 0 and parma[1].current_mask[param[2]] == None):
+        if (len(param) != 0 and param[1].frame_num == 0 and param[1].current_mask[param[2]] == None):
             mask_cam1 = np.zeros(param[0].shape , dtype=np.uint8)
             mask_cam1[ param[0] == param[0][y,x]] = 255
             param[1].callback(mask_cam1,param[2])
@@ -159,6 +159,7 @@ class DataPreprocessor():
         self.data = [ [] , [] , [] ]
         self.current_mask = [ None , None , None ]
         self.num_cam = num_cam
+        self.fgmask = cv2.createBackgroundSubtractorMOG2()
         self.load_data()
     
     
@@ -188,6 +189,7 @@ class DataPreprocessor():
             mask2 = cv2.imread(mask_path2,-1)
             mask2 = np.dstack((mask2,mask2,mask2)).astype(np.uint8)
             
+
             mask3 = cv2.imread(mask_path3,-1)
             mask3 = np.dstack((mask3,mask3,mask3)).astype(np.uint8)
 
@@ -202,8 +204,18 @@ class DataPreprocessor():
             img_reproj_wh , img_cam1_color_wh = white_bg(
                 img_reproj[:].copy() , image_cam1_color[:].copy() ,
                 mask1 , mask_reproj)
+            
 
-            if debug: showImageSet([img_reproj_bk,img_cam1_color_bk , img_reproj_wh , img_cam1_color_wh],["front_bk","back_bk" , "front_wh" , "back_wh"])
+            # mask_reproj_1d = np.dsplit(mask_reproj,3)[0]
+            # front_mask_1d = np.dsplit(mask1 , 3 )[0]
+
+            # mask_diff = np.bitwise_or(mask_reproj_1d,front_mask_1d)
+            
+            # img_inpaint = cv2.inpaint(img_reproj_bk, mask_diff , 3 , cv2.INPAINT_NS)
+            
+            if debug: 
+                showImageSet([img_reproj_bk,img_cam1_color_bk , img_reproj_wh , img_cam1_color_wh ],
+                            ["front_bk","back_bk" , "front_wh" , "back_wh" ])
 
             #  folders to be saved on 
             save_path = self.config.strFilterFullPath 
@@ -250,7 +262,7 @@ class DataPreprocessor():
         
         # obtain the each camera images
         for cam in range( self.num_cam ):
-            path = "./mask/{}/cam{}_mask0.png".format(self.config.strFolderName , cam+1)
+            path = "./mask/{}/cam{}_mask0.png".format(self.config.strFolderName , cam)
             if os.path.isfile(path):self.current_mask[cam] = cv2.imread(path , -1)
             else:self.foreground_extraction(cam,0)            
 
@@ -279,7 +291,8 @@ class DataPreprocessor():
         print("Finished extracting camera {}, Time: {} ms".format(cam, time_taken))
     
     def foreground_extraction(self ,cam, frame_num,debug = False ,save=False): 
-        mask_path ="./mask/{}/cam{}_mask0.png".format(self.config.strFolderName , cam + 1)
+        check_folders("./mask/{}".format(self.config.strFolderName))
+        mask_path ="./mask/{}/cam{}_mask0.png".format(self.config.strFolderName , cam)
         img_color , img_depth = self.get_rgbd(cam,frame_num)        
         next_mask, num_mask = self.filter_img_to_labels(cam,img_depth,debug)
         
@@ -288,7 +301,8 @@ class DataPreprocessor():
             cv2.namedWindow("labels")
             cv2.setMouseCallback("labels", click_region_call_bk,[next_mask,self,cam]) # obtain the masked image 
             cv2.imshow("labels",convert_depth_2_rgb(next_mask,max_depth=num_mask//2))
-            cv2.waitKey(0)
+            k = cv2.waitKey(0) & 0xff
+            if k == ord('q'): cv2.destroyAllWindows()
         # start filtering from 1 onward
         prev_mask = self.current_mask[cam].astype(np.uint8)
         
@@ -298,16 +312,15 @@ class DataPreprocessor():
                     for label in np.unique(next_mask) ])
         result = np.zeros(next_mask.shape)
         result[next_mask == np.argmax(comparison)] = 1  # 255
-        
+
         # for some of the filtering is inverting the expected result 
         non_zero_size = np.count_nonzero(result)
         zero_size = result.shape[0]*result.shape[1]- non_zero_size
         if zero_size < non_zero_size : result = 1 - result
     
         result[result==1] = 255  # creating the mask for given frame
-
+    
         mask = np.dstack((result,result,result)).astype(np.uint8)
-        
         clr = np.bitwise_and(img_color,mask)  
         
         self.data[cam].insert(frame_num , (clr,img_depth))
@@ -363,17 +376,13 @@ class DataPreprocessor():
         return labels, num_labels
 
     def callback(self,mask,cam):
-        print("Store mask in {} cam {} at frame {}".format(self.config.strVideoFolder,cam+1, self.frame_num) )
+        
+        print("Store mask in {} cam {} at frame {}".format(self.config.strVideoFolder,cam, self.frame_num) )
         self.current_mask[cam] = mask.astype(np.uint8) # this one 
-        path = "./mask/{}/cam{}_mask0.png".format(self.config.strFolderName,cam+1)
-        
+        path = "./mask/{}/cam{}_mask0.png".format(self.config.strFolderName,cam)
+        print("Call back, check path.",path)
         # store the images in the mask/SAMPLE_NAME/mask.png
-        cv2.imwrite(os.path.join(
-            "./mask/{}/cam{}_mask0.png".format(self.config.strFolderName,cam+1))
-            ,self.current_mask[cam])
-        
-        # destroy the windows 
-        cv2.destroyAllWindows()
+        cv2.imwrite(path,self.current_mask[cam])
         
 
     def filter_demo(self,cam):
@@ -383,7 +392,7 @@ class DataPreprocessor():
     def demo(self):
         self.load_data()
         self.rgbd_filtering()
-        self.get_backward_frame(save=True , debug=False)
+        self.get_backward_frame(save=False , debug=True)
         
 
 if __name__ == "__main__":

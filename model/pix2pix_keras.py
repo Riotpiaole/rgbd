@@ -26,7 +26,7 @@ def l1_loss(y_true , y_pred):
 
 class  K_DCGAN(data_model):
     def __init__( self  ,flag = "deconv" , epoch=100000,img_shape = [256,256,3]):
-        data_model.__init__(self,"K_DCGAN_dim_256_relu","DCGAN",img_shape=img_shape,epochs=epoch)
+        data_model.__init__(self,"K_DCGAN_dim_256","DCGAN",img_shape=img_shape,epochs=epoch)
         # training params 
         self.patch_size = [64,64]
         self.n_batch_per_epoch = self.batch_size * 100
@@ -40,7 +40,7 @@ class  K_DCGAN(data_model):
     
     def build(self, img_shape):
         self.generator = generator_unet_deconv(img_shape , 2 ,  self.batch_size,
-            model_name="generator_unet_deconv",activation="relu")
+            model_name="generator_unet_deconv",activation=None)
             
         nb_patch , img_shape_disc = get_nb_patch(img_shape ,self.patch_size)
 
