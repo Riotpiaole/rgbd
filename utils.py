@@ -329,6 +329,14 @@ def neg_inverse_normalization(arr , arr_max , arr_min):
     result = (1/2*(arr + 1 ))*(arr_max - arr_min) + arr_min 
     return result.astype(np.uint8)
 
+def std_normalization(arr , arr_mean , arr_std):
+    result = (arr-arr_mean)/arr_std
+    return result.astype(np.uint8)
+
+def inverse_std_normalization(arr , arr_mean , arr_std):
+    result = (arr+arr_mean)*arr_std
+    return result.astype(np.uint8)
+
 
 def bgr_to_rgb(img):
     b , g , r =  np.dsplit((img),3)
