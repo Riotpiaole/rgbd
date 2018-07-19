@@ -26,7 +26,7 @@ def l1_loss(y_true , y_pred):
 
 class  K_DCGAN(data_model):
     def __init__( self  ,flag = "deconv" , epoch=100000,img_shape = [256,256,3]):
-        data_model.__init__(self,"K_DCGAN_dim_256","DCGAN",img_shape=img_shape,epochs=epoch)
+        data_model.__init__(self,"K_DCGAN_dim_256_lr_1e-4","DCGAN",img_shape=img_shape,epochs=epoch)
         # training params 
         self.patch_size = [64,64]
         self.n_batch_per_epoch = self.batch_size * 100
@@ -47,7 +47,7 @@ class  K_DCGAN(data_model):
         self.discriminator = DCGAN_discriminator(img_shape_disc ,nb_patch,2,
                 model_name="DCGAN_discriminator")
         
-        opt_dcgan, opt_discriminator = Adam(lr=0.001,epsilon=1e-08) ,Adam(lr=0.001,epsilon=1e-08)
+        opt_dcgan, opt_discriminator = Adam(lr=0.0001,epsilon=1e-08) ,Adam(lr=0.0001,epsilon=1e-08)
          
         self.generator.compile(loss="categorical_crossentropy" , optimizer=opt_discriminator)
         self.discriminator.trainable =False
@@ -181,9 +181,9 @@ class  K_DCGAN(data_model):
                                                     ("G logloss", gen_loss[2])])
                     if batch_counter % (n_batch_per_epoch / 2) == 0:
                         # Get new images from validation
-                        plot_generated_batch(X, y, self.generator,self.batch_size, "channels_last", "training",self.title,self)
+                        plot_generated_batch(X, y, self.generator,self.batch_size, "training",self.title,self)
                         X_test, y_test = next(self.gen_batch(self.batch_size , validation=True)) # get next validation batches
-                        plot_generated_batch(X_test, y_test, self.generator,self.batch_size, "channels_last", "validation",self.title,self)
+                        plot_generated_batch(X_test, y_test, self.generator,self.batch_size, "validation",self.title,self)
 
                     if batch_counter >= n_batch_per_epoch:
                         break 

@@ -78,9 +78,9 @@ class DeepConvAutoEncoder(data_model ):
                     ("G logloss",log_gen_loss)])
                 
                 if batch_counter % (n_batch_per_epoch / 2) == 0:
-                    plot_generated_batch(X, y, self.model,self.batch_size, "channels_last", "training",self.title,self)
+                    plot_generated_batch(X, y, self.model,self.batch_size, "training",self.title,self)
                     X_test, y_test = next(self.gen_batch(self.batch_size , validation=True)) # get next validation batches
-                    plot_generated_batch(X_test, y_test, self.model,self.batch_size, "channels_last", "validation",self.title,self)
+                    plot_generated_batch(X_test, y_test, self.model,self.batch_size, "validation",self.title,self)
 
                 if batch_counter >= n_batch_per_epoch: break 
                 
