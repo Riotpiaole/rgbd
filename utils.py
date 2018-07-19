@@ -134,6 +134,7 @@ def showImageSet(imgs,names,destroy=True ):
         cv2.destroyAllWindows()
 
 def check(arr):
+    '''check the given array whether or not is existing value but 0'''
     print("checking ",np.mean(arr) , np.max(arr) , np.min(arr))
 
 from  time import time 
@@ -154,10 +155,14 @@ def timeit(log_info=None,flag=False):
             result = func( *args , **kwargs) # recalling the function 
             end = time() 
             time_taken =  round (end - start ,2)
-            if log_info and not flag:print ( "{} elapsed time: {} ms".format(log_info,time_taken ))
-            elif not log_info and not flag:print ( "elapsed time: {} ms".format(time_taken ))
-            elif not log_info and flag:print("elapsed time: {}".format(ms_to_hr_mins(time_taken)))
-            else: print("{} elapsed time: {}".format(log_info,ms_to_hr_mins(time_taken)))
+            if log_info and not flag:
+                print ( "{} elapsed time: {} ms".format(log_info,time_taken ))
+            elif not log_info and not flag:
+                print ( "elapsed time: {} ms".format(time_taken ))
+            elif not log_info and flag:
+                print("elapsed time: {}".format(ms_to_hr_mins(time_taken)))
+            else: 
+                print("{} elapsed time: {}".format(log_info,ms_to_hr_mins(time_taken)))
             return result 
         return inner_wrapper
     return wrapper
@@ -187,10 +192,46 @@ def create_folder(indx , folder_path, verbose=False):
     
 
 def check_folders(folder_paths):
-    '''Checking the Given Path existence if not create the folder'''
+    '''check_folders
+    Checking the Given Path existence if not create the folder
+    Arguments: 
+        folder_paths:(str) directory of folders that will be checked and created 
+    
+    ```python3
+    >>> #when ../log/ doesn't exists and ../log/model doesn't exists
+    >>> check_folders("../log/model_name/")
+    Folder log not found, Create the folder log.
+    Folder model_name not found, Create the folder model_name.
+    >>> import os 
+    >>> os.listdir("../log/")
+    ['model_name']
+    >>> os.listdir("../")
+    ['log']
+    >>> check_folders("../log/model_name/")
+    Folder log found Skipping.
+    Folder model found Skipping.
+    ```
+    '''
     create_folder(len(folder_paths.split("/")),folder_paths.split("/"))
 
 def training_wrapper(func):
+    '''training_wrappers 
+            a python decroator over training parameters over a `def train(self)` with inhernted function 
+            self.save for key board interruption can be tracked and save the model 
+    
+    ```python
+    
+    def save(self):
+        ...# some saving function 
+    
+    ...
+    
+    @training_wrapper
+    def train(self):
+        ...# training iterations
+
+    ```
+    '''
     def innerwrapper(*args , **kwargs):
         result = -1
         try:
@@ -215,6 +256,81 @@ def training_wrapper(func):
     return innerwrapper
 
 
+def normalization(arr , arr_max , arr_min): # normalized between 0 and 1 
+    result = (arr - arr_min)/(arr_max - arr_min)
+    return result.astype(np.float64)
+
+def inverse_normalization(arr , arr_max , arr_min):
+    result = (arr_max - arr_min) * ( arr ) + arr_min
+    return result.astype(np.uint8)
+
+
+def neg_normalization(arr , arr_max , arr_min): # normalized between 0 and 1 
+    result = (2*(arr - arr_min)/(arr_max - arr_min)) -1
+    return result.astype(np.float64)
+
+def neg_inverse_normalization(arr , arr_max , arr_min):
+    result = (1/2*(arr + 1 ))*(arr_max - arr_min) + arr_min 
+    return result.astype(np.uint8)
+
+def std_normalization(arr , arr_mean , arr_std):
+    result = (arr-arr_mean)/arr_std
+    return result.astype(np.uint8)
+
+def inverse_std_normalization(arr , arr_mean , arr_std):
+    result = (arr+arr_mean)*arr_std
+    return result.astype(np.uint8)
+
+
+def bgr_to_rgb(img):
+    '''Convert image from bgr to rgb'''
+    b , g , r =  np.dsplit((img),3)
+    return np.dstack((r,g,b))
+
+def rgb_to_bgr(img):
+    '''Convert image from rgb to bgr'''
+    r , g , b = np.dsplit((img),3)
+    return np.dstack((b,g,r))
+
+
+
+def read_img(strFileDir,strName,img_shape, blur=True):
+    '''read_img 
+    Reading image with opencv `cv.imread` with converting bgr to rgb in given `img_shape`
+    with float64 dtype
+    
+    ```python
+    >>img = read_img("../data/", "cat.png", (256,256,3))
+    >>print(img.shape)
+    (256,256,3)
+    >>print(img.dtype)
+    np.float64
+    ```
+    Arguments
+        strFileDir :(str) directory of the file 
+        strName : (str) name of the file 
+        img_shape: len[( dict[int] )]==3  image shape
+        blur: bool Gaussian Blur the given image # or smoothening
+    
+    Return:
+        img
+    '''
+    img_shape = ( img_shape[0] ,img_shape[1])
+    
+    img = cv2.imread(
+        os.path.join(strFileDir,strName),-1
+            ).astype(np.float64)
+
+    resize_img = cv2.resize(img, img_shape)
+    
+    if blur :resize_img = cv2.blur(resize_img , (3,3))
+    
+    resize_img = bgr_to_rgb(resize_img)
+    return resize_img
+
+# =======================================================
+# for Pix2Pix_keras uses 
+# =======================================================
 
 def get_nb_patch(img_dim, patch_size):
     assert img_dim[0] % patch_size[0] == 0, "patch_size does not divide height"
@@ -277,7 +393,7 @@ def extract_patches(X , patch_size):
     return list_X
 
 def plot_generated_batch(X, y, generator_model, batch_size, suffix,model_name,self):
-
+    '''Plotting image that be generated generator_model with given batch and saved i'''
     # Generate images
     y_gen = generator_model.predict(X)
     if self.reverse_norm:
@@ -311,47 +427,3 @@ def plot_generated_batch(X, y, generator_model, batch_size, suffix,model_name,se
     plt.savefig("../figures/%s/current_batch_%s.png" % (model_name,suffix))
     plt.clf()
     plt.close()
-
-def normalization(arr , arr_max , arr_min): # normalized between 0 and 1 
-    result = (arr - arr_min)/(arr_max - arr_min)
-    return result.astype(np.float64)
-
-def inverse_normalization(arr , arr_max , arr_min):
-    result = (arr_max - arr_min) * ( arr ) + arr_min
-    return result.astype(np.uint8)
-
-
-def neg_normalization(arr , arr_max , arr_min): # normalized between 0 and 1 
-    result = (2*(arr - arr_min)/(arr_max - arr_min)) -1
-    return result.astype(np.float64)
-
-def neg_inverse_normalization(arr , arr_max , arr_min):
-    result = (1/2*(arr + 1 ))*(arr_max - arr_min) + arr_min 
-    return result.astype(np.uint8)
-
-def std_normalization(arr , arr_mean , arr_std):
-    result = (arr-arr_mean)/arr_std
-    return result.astype(np.uint8)
-
-def inverse_std_normalization(arr , arr_mean , arr_std):
-    result = (arr+arr_mean)*arr_std
-    return result.astype(np.uint8)
-
-
-def bgr_to_rgb(img):
-    b , g , r =  np.dsplit((img),3)
-    return np.dstack((r,g,b))
-
-def rgb_to_bgr(img):
-    r , g , b = np.dsplit((img),3)
-    return np.dstack((b,g,r))
-
-
-
-def read_img(filedir,name,img_shape, blur=True):
-    img_shape = ( img_shape[0] ,img_shape[1])
-    img = cv2.imread(os.path.join(filedir,name),-1).astype(np.float64)
-    resize_img = cv2.resize(img, img_shape)
-    if blur :resize_img = cv2.blur(resize_img , (3,3))
-    resize_img = bgr_to_rgb(resize_img)
-    return resize_img
