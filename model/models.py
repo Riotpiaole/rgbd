@@ -114,7 +114,6 @@ def generator_unet_deconv(img_dim, bn_mode, batch_size, model_name="generator_un
     x = Activation("relu")(list_decoder[-1])
     o_shape = [ batch_size , img_dim[0] , img_dim[1] , img_dim[2]]
     x = Conv2DTranspose(nb_channels, (3, 3), output_shape=o_shape, strides=(2, 2), padding="same")(x)
-    x = Activation("relu")(x)
 
     generator_unet = Model(inputs=[unet_input], outputs=[x])
 
