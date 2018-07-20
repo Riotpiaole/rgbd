@@ -2,5 +2,3 @@ __pycache__
 *.pyc
 .git
 .DS_Store
-figures
-log
