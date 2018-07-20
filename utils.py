@@ -50,30 +50,14 @@ def time_in_seconds_to_d_h_m_s(seconds):
     return days, hours, minutes, seconds # print("{0[0]} days, {0[1]} hours, {0[2]} minutes, {0[3]} seconds".format(time_in_seconds_to_d_h_m_s(seconds)))
 
 
-def print_text_progress_bar(percentage, **kwargs):
-    '''
-        Prints a progress bar to the console. Expected to be called once per iteration to update the progress bar. 
-        The parameter 'percentage' should be in [0, 1] inclusive.
-        *** Only works in the terminal/console and not in an IDE like IDLE.
+def hyperparameter_tunning(func, lrs ):
+    '''Fine Tuning Hyper'''
+    def innerwrapper(*args , **kwargs):
+        learning_rate = [ 1e-3 , 1e-4 , 1e-5 ] # often opts
+        result = func(*args , **kwargs)
 
-        bar_char = the character that is used to represent one 'unit' of the progress bar that has already passed
-        bar_space = the character which is used to represent one 'unit' of the progress bar that has not yet passed
-        bar_length = the number of bar_char that we print
-    '''
-    bar_name=kwargs.get('bar_name', 'Progress')
-    bar_char=kwargs.get('bar_char', '#')
-    bar_space=kwargs.get('bar_space', ' ')
-    bar_length=kwargs.get('bar_length', 50)
-    debug_msg=kwargs.get('debug_msg', '')
-
-    progress_sofar = bar_char * int(round(percentage * bar_length))
-    progress_left = bar_space * (bar_length - len(progress_sofar))
-
-    # TODO: figure a better to handle both python2 and python3
-    # current the best solution is to just comment lines out
-    #print('\r'+bar_name+'[{0}] {1}% '.format(progress_sofar + progress_left, round(percentage*100))),
-    print('\r'+bar_name+'[{0}] {1}% '.format(progress_sofar + progress_left, round(percentage*100)) + debug_msg, end='')
-
+        return result 
+    return innerwrapper
 def listfiles_nohidden(inputPath, includeInputPath=False, ext=''):
     '''
         Return a list of files in a given directory ignoring the hidden files.
@@ -140,12 +124,20 @@ def check(arr):
 from  time import time 
 from functools import wraps
 
-def ms_to_hr_mins(t_taken):
-    t_taken = int(t_taken)
-    seconds=(t_taken/1000)%60
-    minutes=(t_taken/(1000*60))%60
-    hours=(t_taken/(1000*60*60))%24
-    return "{}hr{}min and {}s".format(hours,minutes,seconds)
+
+def re_format_hr_min_sec(time_taken):
+    result = ""
+    tuple_times = time_in_seconds_to_d_h_m_s(time_taken)
+    for i , key  in enumerate(tuple_times):
+        if i == 0 and key != 0:
+            result += "{}hrs ".format(key) 
+        elif i == 1 and key != 0:
+            result += "{}mins ".format(key)
+        elif i == 2 and key != 0:
+            result += "{}s ".format(key)
+        elif i == 3 and key != 0:
+            result += "{}ms".format(key)
+    return result
 
 def timeit(log_info=None,flag=False):
     def wrapper( func ):
@@ -160,9 +152,9 @@ def timeit(log_info=None,flag=False):
             elif not log_info and not flag:
                 print ( "elapsed time: {} ms".format(time_taken ))
             elif not log_info and flag:
-                print("elapsed time: {}".format(ms_to_hr_mins(time_taken)))
+                print("elapsed time: {}".format(re_format_hr_min_sec(time_taken)))
             else: 
-                print("{} elapsed time: {}".format(log_info,ms_to_hr_mins(time_taken)))
+                print("{} elapsed time: {}".format(log_info,re_format_hr_min_sec(time_taken)))
             return result 
         return inner_wrapper
     return wrapper
@@ -215,7 +207,8 @@ def check_folders(folder_paths):
     create_folder(len(folder_paths.split("/")),folder_paths.split("/"))
 
 def training_wrapper(func):
-    '''training_wrappers 
+    '''
+    training_wrappers 
             a python decroator over training parameters over a `def train(self)` with inhernted function 
             self.save for key board interruption can be tracked and save the model 
     
@@ -265,11 +258,11 @@ def inverse_normalization(arr , arr_max , arr_min):
     return result.astype(np.uint8)
 
 
-def neg_normalization(arr , arr_max , arr_min): # normalized between 0 and 1 
+def tanh_normalization(arr , arr_max , arr_min): # normalized between 0 and 1 
     result = (2*(arr - arr_min)/(arr_max - arr_min)) -1
     return result.astype(np.float64)
 
-def neg_inverse_normalization(arr , arr_max , arr_min):
+def tanh_inverse_normalization(arr , arr_max , arr_min):
     result = (1/2*(arr + 1 ))*(arr_max - arr_min) + arr_min 
     return result.astype(np.uint8)
 
@@ -277,10 +270,9 @@ def std_normalization(arr , arr_mean , arr_std):
     result = (arr-arr_mean)/arr_std
     return result.astype(np.uint8)
 
-def inverse_std_normalization(arr , arr_mean , arr_std):
+def std_inverse_normalization(arr , arr_mean , arr_std):
     result = (arr+arr_mean)*arr_std
     return result.astype(np.uint8)
-
 
 def bgr_to_rgb(img):
     '''Convert image from bgr to rgb'''
@@ -295,9 +287,10 @@ def rgb_to_bgr(img):
 
 
 def read_img(strFileDir,strName,img_shape, blur=True):
-    '''read_img 
-    Reading image with opencv `cv.imread` with converting bgr to rgb in given `img_shape`
-    with float64 dtype
+    '''
+    read_img 
+        Reading image with opencv `cv.imread` with converting bgr to rgb in given `img_shape`
+        with float64 dtype
     
     ```python
     >>img = read_img("../data/", "cat.png", (256,256,3))
@@ -427,3 +420,28 @@ def plot_generated_batch(X, y, generator_model, batch_size, suffix,model_name,se
     plt.savefig("../figures/%s/current_batch_%s.png" % (model_name,suffix))
     plt.clf()
     plt.close()
+
+
+def print_text_progress_bar(percentage, **kwargs):
+    '''
+        Prints a progress bar to the console. Expected to be called once per iteration to update the progress bar. 
+        The parameter 'percentage' should be in [0, 1] inclusive.
+        *** Only works in the terminal/console and not in an IDE like IDLE.
+
+        bar_char = the character that is used to represent one 'unit' of the progress bar that has already passed
+        bar_space = the character which is used to represent one 'unit' of the progress bar that has not yet passed
+        bar_length = the number of bar_char that we print
+    '''
+    bar_name=kwargs.get('bar_name', 'Progress')
+    bar_char=kwargs.get('bar_char', '#')
+    bar_space=kwargs.get('bar_space', ' ')
+    bar_length=kwargs.get('bar_length', 50)
+    debug_msg=kwargs.get('debug_msg', '')
+
+    progress_sofar = bar_char * int(round(percentage * bar_length))
+    progress_left = bar_space * (bar_length - len(progress_sofar))
+
+    # TODO: figure a better to handle both python2 and python3
+    # current the best solution is to just comment lines out
+    #print('\r'+bar_name+'[{0}] {1}% '.format(progress_sofar + progress_left, round(percentage*100))),
+    print('\r'+bar_name+'[{0}] {1}% '.format(progress_sofar + progress_left, round(percentage*100)) + debug_msg, end='')

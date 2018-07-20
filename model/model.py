@@ -13,11 +13,11 @@ from utils import (
     rgb_to_bgr ,
     check_folders,
     alphanum_key , 
-    normalization ,
     extract_patches ,
-    neg_normalization , 
+    normalization ,
     inverse_normalization ,
-    neg_inverse_normalization
+    tanh_normalization , 
+    tanh_inverse_normalization
 )
 
 from functools import wraps
@@ -64,8 +64,8 @@ class data_model(object):
         self.min = np.min(entire_samples)
 
         if self.reverse_norm:
-            self.data['X'] = neg_normalization(self.data['X'],self.max , self.min)
-            self.data['y'] = neg_normalization(self.data['y'],self.max , self.min)
+            self.data['X'] = tanh_normalization(self.data['X'],self.max , self.min)
+            self.data['y'] = tanh_normalization(self.data['y'],self.max , self.min)
         else:
             self.data['X'] = normalization(self.data['X'],self.max , self.min)
             self.data['y'] = normalization(self.data['y'],self.max , self.min)
