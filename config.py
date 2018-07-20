@@ -11,7 +11,7 @@ strVideoFullPath = os.path.join(strVideoFolder, strFolderName)
 strPoseLocation = os.path.join(strVideoFullPath, "unity3d_poses.txt")
 
 # folder storing filtered images
-strFilterFolder="/Users/rockliang/Documents/Research/VISION/RGBD/rgbd_prediction/data"
+strFilterFolder="./data"
 strFilterFullPath = os.path.join(strFilterFolder,strFolderName)
 strFilterFullPathBlack = os.path.join(strFilterFolder,strFolderNameBlack)
 

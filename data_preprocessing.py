@@ -74,15 +74,24 @@ def unproject_pointcloud(ptcloud, camera_params, scaleFactor=1000):
     return np.array(img_pts)
 
 
-def reproject_ptcloud(index,src,dest):
-    img_h , img_w , img_chans = dest.shape
+def reproject_ptcloud(index,src,dest,radius=1):
+    img_h , img_w , _ = dest.shape
     start = time()
     for ip in src:
         x, y, z, r, g, b = ip
         in_xrange = (x > 0) and (x < img_w)
         in_yrange = (y > 0) and (y < img_h)
-        if in_xrange and in_yrange:  dest[int(y), int(x)] = np.array([b, g, r]) ## put it into opencv bgr ordering
+        if in_xrange and in_yrange: 
+            in_radius_xrange  = [ int(x) + i for i in range(1,radius)]
+            in_radius_yrange  = [ int(y) + i for i in range(1,radius)]
+            dest[int(y), int(x)] = np.array([b, g, r]) ## put it into opencv bgr ordering
+            for (x , y) in zip(in_radius_xrange , in_radius_yrange):
+                in_xrange, in_yrange = (x > 0) and (x < img_w) ,(y > 0) and (y < img_h)
+                if in_xrange and in_yrange: 
+                    dest[ y, x ] = np.array([b, g, r]) ## put it into opencv bgr ordering
+        
     end = time() 
+    result = (dest == None).any()
     time_taken =  round (end - start ,2)
     print("successifully extracted image "+str(index)+" time taken :"+str(time_taken) , end="\r")
 
@@ -166,11 +175,8 @@ class DataPreprocessor():
     # actual filtering
     @timeit(log_info="Obtain all the traning data ")
     def get_backward_frame(self,debug=False,save=False ):
-        cam_pose1 , cam_pose2  , cam_pose3 = self.sensor_props[0] ,self.sensor_props[1] , self.sensor_props[2]  
         # for each pair of camera images 
-        for i , ((image_cam1_color , image_cam1_depth),(image_cam2_color , image_cam2_depth), (image_cam3_color, image_cam3_depth)) in enumerate(zip(self.data[0] , self.data[1] , self.data[2])): 
-            start = time()
-            
+        for i , ((image_cam1_color , image_cam1_depth),(image_cam2_color , image_cam2_depth), (image_cam3_color, image_cam3_depth)) in enumerate(zip(self.data[0] , self.data[1] , self.data[2])):
             img_reproj = two_camera_reprojection(i , self.cam_params , self.sensor_props ,
                             image_cam2_color , image_cam3_color , 
                             image_cam2_depth , image_cam3_depth)
@@ -185,6 +191,7 @@ class DataPreprocessor():
             
             mask1 = cv2.imread(mask_path1,-1)
             mask1 = np.dstack((mask1,mask1,mask1)).astype(np.uint8)
+            
 
             mask2 = cv2.imread(mask_path2,-1)
             mask2 = np.dstack((mask2,mask2,mask2)).astype(np.uint8)
@@ -205,13 +212,6 @@ class DataPreprocessor():
                 img_reproj[:].copy() , image_cam1_color[:].copy() ,
                 mask1 , mask_reproj)
             
-
-            # mask_reproj_1d = np.dsplit(mask_reproj,3)[0]
-            # front_mask_1d = np.dsplit(mask1 , 3 )[0]
-
-            # mask_diff = np.bitwise_or(mask_reproj_1d,front_mask_1d)
-            
-            # img_inpaint = cv2.inpaint(img_reproj_bk, mask_diff , 3 , cv2.INPAINT_NS)
             
             if debug: 
                 showImageSet([img_reproj_bk,img_cam1_color_bk , img_reproj_wh , img_cam1_color_wh ],
@@ -225,9 +225,6 @@ class DataPreprocessor():
                 self.save(save_path , i , img_cam1_color_wh , img_reproj_wh)
                 self.save(save_path_bk , i , img_cam1_color_bk , img_reproj_bk)
             
-            end =time()
-            time_taken =  round (end - start ,2)
-            # print("Saving train and target at frame {} and Taken:{} ms".format(i,time_taken),end="\r")
 
     def save(self,save_path, index , train , label ):
         save_train_folder_path , save_target_folder_path = os.path.join(save_path,"train"), os.path.join(save_path,"target")
@@ -280,12 +277,12 @@ class DataPreprocessor():
                 process.start()
                 threads.append(process)
             for process in threads: process.join() 
-    
+            
     #  wrapper function for multi-thread computing the image background
     def images_extraction(self,cam,debug=False):
         start = time()
         for frame_num in range(self.total_frame_num):
-            self.foreground_extraction(cam,frame_num,debug=debug,save=False) # remove background
+            self.foreground_extraction(cam,frame_num,debug=debug,save=True) # remove background
         end = time() 
         time_taken =  round (end - start ,2)
         print("Finished extracting camera {}, Time: {} ms".format(cam, time_taken))
@@ -392,7 +389,7 @@ class DataPreprocessor():
     def demo(self):
         self.load_data()
         self.rgbd_filtering()
-        self.get_backward_frame(save=False , debug=True)
+        self.get_backward_frame(save=True)
         
 
 if __name__ == "__main__":
