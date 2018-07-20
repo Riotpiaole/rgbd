@@ -47,7 +47,7 @@ class  K_DCGAN(data_model):
         self.discriminator = DCGAN_discriminator(img_shape_disc ,nb_patch,2,
                 model_name="DCGAN_discriminator")
         
-        opt_dcgan, opt_discriminator = Adam(lr=0.0001,epsilon=1e-08) ,Adam(lr=0.0001,epsilon=1e-08)
+        opt_dcgan, opt_discriminator = Adam(lr=1e-4,epsilon=1e-08) ,Adam(lr=1e-4,epsilon=1e-08)
          
         self.generator.compile(loss="categorical_crossentropy" , optimizer=opt_discriminator)
         self.discriminator.trainable =False

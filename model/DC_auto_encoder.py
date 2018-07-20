@@ -16,21 +16,25 @@ from utils import (
     get_nb_patch,
     training_wrapper
 )
+def l1_loss(y_true , y_pred):
+    return K.sum( K.abs( y_pred  - y_true), axis=-1)
+
 class DeepConvAutoEncoder(data_model ):
     def __init__( self , epoch=100000,img_shape = [256,256,3]):
         super().__init__(
-                "deep_conv_autoencoder",
+                "deep_conv_autoencoder_bk_lr_1e-4",
                 "generator",
                 epochs=epoch,
-                batch_size=20)
+                batch_size=20,
+                white_bk=False)
         self.build(self.img_shape)
         self.n_batch_per_epoch = 100
         check_folders(self.weight_path)
 
     def build(self,img_shape ):
         self.model = generator_unet_deconv(img_shape , 2 ,  self.batch_size,
-            model_name="generator_unet_deconv")
-        opt_discriminator = Adam(lr=0.0001,epsilon=1e-08)
+            model_name="generator_unet_deconv", activation=None)
+        opt_discriminator = Adam(lr=1e-4,epsilon=10e-8)
         self.model.compile(loss="categorical_crossentropy" , optimizer=opt_discriminator)
     
     def log_checkpoint(self,epoch , batch, loss):
@@ -51,6 +55,7 @@ class DeepConvAutoEncoder(data_model ):
                 batch ))
             f.write( "\n")
             f.write( "Losses: {}".format( loss ))
+
     @training_wrapper
     @timeit(log_info="Training deconv_autoEncoder")
     def train(self , retrain=False):
@@ -71,11 +76,9 @@ class DeepConvAutoEncoder(data_model ):
             
             for X , y in self.gen_batch(self.batch_size):
                 gen_loss = self.model.train_on_batch(X , y)
-                log_gen_loss =  np.exp(gen_loss)
                 batch_counter += 1
                 progbar.add(self.batch_size , values=[
-                    ("G loss ", gen_loss ),
-                    ("G logloss",log_gen_loss)])
+                    ("G loss ", gen_loss )])
                 
                 if batch_counter % (n_batch_per_epoch / 2) == 0:
                     plot_generated_batch(X, y, self.model,self.batch_size, "training",self.title,self)
@@ -90,8 +93,7 @@ class DeepConvAutoEncoder(data_model ):
             if e % 5 == 0: 
                 self.save()
                 self.log_checkpoint(e , batch_counter ,[
-                                    ("G loss ", gen_loss ),
-                                    ("G logloss",log_gen_loss)])
+                                    ("G loss ", gen_loss )])
 if __name__ == "__main__":
     model = DeepConvAutoEncoder()
     model.train(retrain=False)
