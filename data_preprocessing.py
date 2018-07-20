@@ -74,17 +74,19 @@ def unproject_pointcloud(ptcloud, camera_params, scaleFactor=1000):
     return np.array(img_pts)
 
 
-def reproject_ptcloud(index,src,dest,radius=1):
+def reproject_ptcloud(index,src,dest,radius=2):
     img_h , img_w , _ = dest.shape
     start = time()
+    debug_dest = dest[:].copy()
     for ip in src:
         x, y, z, r, g, b = ip
         in_xrange = (x > 0) and (x < img_w)
         in_yrange = (y > 0) and (y < img_h)
         if in_xrange and in_yrange: 
-            in_radius_xrange  = [ int(x) + i for i in range(1,radius)]
-            in_radius_yrange  = [ int(y) + i for i in range(1,radius)]
+            in_radius_xrange  = [ int(x) + i for i in range(1,radius)] + [int(x) - i for i in range(1,radius)]
+            in_radius_yrange  = [ int(y) + i for i in range(1,radius)] + [int(x) - i for i in range(1,radius)]
             dest[int(y), int(x)] = np.array([b, g, r]) ## put it into opencv bgr ordering
+            debug_dest[int(y), int(x)] = np.array([b, g, r])
             for (x , y) in zip(in_radius_xrange , in_radius_yrange):
                 in_xrange, in_yrange = (x > 0) and (x < img_w) ,(y > 0) and (y < img_h)
                 if in_xrange and in_yrange: 
@@ -94,6 +96,7 @@ def reproject_ptcloud(index,src,dest,radius=1):
     result = (dest == None).any()
     time_taken =  round (end - start ,2)
     print("successifully extracted image "+str(index)+" time taken :"+str(time_taken) , end="\r")
+    return debug_dest
 
 def convert_depth_2_rgb(img_depth, max_depth=3000):
     img_depth_rgb = img_depth*(255/max_depth) # colors will repeat if the depth can be measured beyond max_depth (default = 10 meters)
@@ -115,7 +118,7 @@ def transform_pointcloud_vectorized(ptcloud, rotMat, transMat, scaleFactor=1000)
 
     return transformedPtcloud
 
-def two_camera_reprojection( iteration ,cam_params , sensor_props ,rgb1 , rgb2 , dep1 , dep2 ): 
+def two_camera_reprojection( iteration ,cam_params , sensor_props ,rgb1 , rgb2 , dep1 , dep2 , debug=False): 
     cam_pose1 , cam_pose2  , cam_pose3 = sensor_props
 
     ptcloud2 , nVertice2 = image_fusion(cam_params,dep1,rgb1)
@@ -142,8 +145,10 @@ def two_camera_reprojection( iteration ,cam_params , sensor_props ,rgb1 , rgb2 ,
     img_pts = np.vstack( ( img_pts2_1 , img_pts3_1 ) )
     img_reproj = np.zeros(rgb1.shape,rgb1.dtype)
     
-    reproject_ptcloud(iteration , img_pts , img_reproj)
-    
+    debug_diff = reproject_ptcloud(iteration , img_pts , img_reproj)
+
+    if debug: showImageSet([debug_diff , img_reproj],["without_inpainted", "with_inpainted"])
+
     img_reproj = cv2.morphologyEx( img_reproj , cv2. MORPH_CLOSE,  (2,2))
     img_reproj = cv2.morphologyEx( img_reproj , cv2. MORPH_OPEN,  (2,2))
     img_reproj = cv2.bilateralFilter(img_reproj, 10 , 30, 50)
@@ -179,7 +184,7 @@ class DataPreprocessor():
         for i , ((image_cam1_color , image_cam1_depth),(image_cam2_color , image_cam2_depth), (image_cam3_color, image_cam3_depth)) in enumerate(zip(self.data[0] , self.data[1] , self.data[2])):
             img_reproj = two_camera_reprojection(i , self.cam_params , self.sensor_props ,
                             image_cam2_color , image_cam3_color , 
-                            image_cam2_depth , image_cam3_depth)
+                            image_cam2_depth , image_cam3_depth , debug )
             
             # ===================================================================
             # Mask remove black color
