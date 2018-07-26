@@ -36,8 +36,8 @@ x_test = np.reshape(x_test, [-1, image_size, image_size, 1])
 x_train = x_train.astype('float32') / 255
 x_test = x_test.astype('float32') / 255
 
-x_train = 1-x_train 
-x_test = 1-x_test
+x_train = 1 - x_train
+x_test = 1 - x_test
 
 # Generate corrupted MNIST images by adding noise with normal dist
 # centered at 0.5 and std=0.5
