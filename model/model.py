@@ -212,19 +212,10 @@ class data_model(object):
         check_folders("../figures/%s" % (self.title))
         plt.imshow(result)
         plt.axis("off")
-<<<<<<< HEAD
         plt.show()
         plt.savefig(
             "../figures/%s/current_batch_%s.png" %
             (self.title, suffix))
-=======
-        plt.savefig("../figures/%s/current_batch_%s.png" % (self.title,suffix))
-        plt.show()
-        plt.clf()
-        plt.close()
-       
-
->>>>>>> master
 
 
 if __name__ == "__main__":
