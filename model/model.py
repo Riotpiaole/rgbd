@@ -1,4 +1,3 @@
-import tensorflow as tf
 import os
 import cv2
 import sys
@@ -26,9 +25,11 @@ from utils import (
 from functools import wraps
 import matplotlib.pyplot as plt
 from keras.preprocessing import image
-from config import strFolderName, strFolderNameBlack
+from config import config
 
 
+Config = config("test01")
+strFolderName, strFolderNameBlack = Config.strFolderName , Config.strFolderNameBlack
 class data_model(object):
     def __init__(
             self,

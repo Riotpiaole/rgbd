@@ -126,5 +126,5 @@ class DeepConvAutoEncoder(data_model):
 if __name__ == "__main__":
     model = DeepConvAutoEncoder()
     model.model.summary()
-    # model.train(retrain=False)
+    model.train(retrain=False)
     model.test_img()
