@@ -1,406 +1,372 @@
 import sys
 import os
-from os import listdir
+from time import time
 from os.path import isfile, join
-import time 
+
+# import config
+from config import config
 
 
-import config
-import random as rnd
-
-
-import cv2 , sys 
+import cv2
+import sys
 import numpy as np
 
 from numpy.linalg import inv
 
-from utils import *
-from utils_camera import *
-from utils_rgbd_images import *
-from threading import Thread
+# Must have function for image filtering
+from utils import (
+    transform_pointcloud_vectorized,
+    scatter_point_filtering,
+    unproject_pointcloud,
+    click_region_call_bk,
+    convert_depth_2_rgb,
+    reproject_ptcloud,
+    compute_img_diff,
+    black_bg,
+    white_bg,
+)
 
-def compute_img_diff(label, prev_label ,labels, shape=(240 ,320)):
-    tmp = np.zeros(shape , dtype=np.uint8)
-    tmp[ labels == label ]= 255
-    # #====================================
-    # # find the standard deviation error==
-    # #====================================
-    # # doesnt work when similarity is too huge  
-    # _, std = cv2.meanStdDev(prev_label)
-    # _, std2 = cv2.meanStdDev(tmp)
-    # diff = np.abs(std2-std)
-    
-    # # ====================================
-    # # mean_square_error # i doesnt work all of the value is simlar
-    # # ====================================
-    # err = np.sum((prev_label.astype(np.float64) - labels.astype(np.float64)) **2 )
-    # err /=float(prev_label.shape[0] * prev_label.shape[1] )
-    
-    #=====================================
-    # histograms==========================
-    #=====================================
-    prev_hist, next_hist = cv2.calcHist([prev_label],[0],None , [256],[0,256] ), cv2.calcHist([tmp],[0],None , [256],[0,256] ) 
-    d = cv2.compareHist(prev_hist , next_hist , cv2.HISTCMP_CORREL )
-    tmp[ labels == 1 ]= 255
-    return d
+# Helper function
+from utils import (
+    multi_threads_wrapper,
+    check_folders,
+    showImageSet,
+    timeit,
+)
 
-
-def click_region_call_bk(event,x,y,flags,param):
-    '''
-    click_region_call_bk
-        call back for find the region of interests
-        param accept a call back function 
-    '''
-    
-    if event == cv2.EVENT_LBUTTONDOWN:
-        if (len(param) != 0 and param[1].frame_num == 0 and param[1].current_mask[param[2]] == None):
-            mask_cam1 = np.zeros(param[0].shape , dtype=np.uint8)
-            mask_cam1[ param[0] == param[0][y,x]] = 255
-            param[1].callback(mask_cam1,param[2])
-        
-
-def unproject_pointcloud(ptcloud, camera_params, scaleFactor=1000):
-    img_pts = [] # im_x, im_y, im_z, r, g, b
-
-    for p in ptcloud:
-        x, y, z, r, g, b = p
-
-        if z > 0: # reverse projection equations
-            im_x = ((x/z)*camera_params.fx) + camera_params.cx 
-            im_y = ((y/z)*camera_params.fy) + camera_params.cy
-
-            img_pts.append([im_x, im_y, z, r, g, b])
-
-    return np.array(img_pts)
+from utils_camera import (
+    ReadManualCalibPoses,
+    GetCameraParameters
+)
+from utils_rgbd_images import (
+    image_fusion
+)
 
 
-def reproject_ptcloud(index,src,dest,radius=2):
-    img_h , img_w , _ = dest.shape
-    start = time()
-    debug_dest = dest[:].copy()
-    for ip in src:
-        x, y, z, r, g, b = ip
-        in_xrange = (x > 0) and (x < img_w)
-        in_yrange = (y > 0) and (y < img_h)
-        if in_xrange and in_yrange: 
-            in_radius_xrange  = [ int(x) + i for i in range(1,radius)] + [int(x) - i for i in range(1,radius)]
-            in_radius_yrange  = [ int(y) + i for i in range(1,radius)] + [int(x) - i for i in range(1,radius)]
-            dest[int(y), int(x)] = np.array([b, g, r]) ## put it into opencv bgr ordering
-            debug_dest[int(y), int(x)] = np.array([b, g, r])
-            for (x , y) in zip(in_radius_xrange , in_radius_yrange):
-                in_xrange, in_yrange = (x > 0) and (x < img_w) ,(y > 0) and (y < img_h)
-                if in_xrange and in_yrange: 
-                    dest[ y, x ] = np.array([b, g, r]) ## put it into opencv bgr ordering
-        
-    end = time() 
-    result = (dest == None).any()
-    time_taken =  round (end - start ,2)
-    print("successifully extracted image "+str(index)+" time taken :"+str(time_taken) , end="\r")
-    return debug_dest
+config = config("ImgSeq_Po_02_Bag", radius=0)
 
-def convert_depth_2_rgb(img_depth, max_depth=3000):
-    img_depth_rgb = img_depth*(255/max_depth) # colors will repeat if the depth can be measured beyond max_depth (default = 10 meters)
-    img_depth_rgb = np.uint8(img_depth_rgb)
-    img_depth_rgb = cv2.applyColorMap(img_depth_rgb, cv2.COLORMAP_JET)
-    return img_depth_rgb
 
-def transform_pointcloud_vectorized(ptcloud, rotMat, transMat, scaleFactor=1000):
-    xyz, rgb = np.hsplit(ptcloud, 2)
-    # apply rotation
-    rotatedXYZ = np.matmul(xyz, rotMat[0:3, 0:3])
+def two_camera_reprojection(
+        iteration,
+        cam_params,
+        sensor_props,
+        rgb1,
+        rgb2,
+        dep1,
+        dep2,
+        debug=False,
+        radius=2):
+    cam_pose1, cam_pose2, cam_pose3 = sensor_props
 
-    # apply translation
-    rotatedXYZ[..., 0] -= (transMat[0] * scaleFactor)
-    rotatedXYZ[..., 1] += (transMat[1] * scaleFactor)
-    rotatedXYZ[..., 2] += (transMat[2] * scaleFactor)
+    ptcloud2, _ = image_fusion(cam_params, dep1, rgb1)
+    ptcloud3, _ = image_fusion(cam_params, dep2, rgb2)
 
-    transformedPtcloud = np.hstack([rotatedXYZ, rgb])
-
-    return transformedPtcloud
-
-def two_camera_reprojection( iteration ,cam_params , sensor_props ,rgb1 , rgb2 , dep1 , dep2 , debug=False): 
-    cam_pose1 , cam_pose2  , cam_pose3 = sensor_props
-
-    ptcloud2 , nVertice2 = image_fusion(cam_params,dep1,rgb1)
-    ptcloud3 , nVertice3 = image_fusion(cam_params,dep2,rgb2)
-
-    ptcloud2_transformed = transform_pointcloud_vectorized(ptcloud2[:].copy(), cam_pose2.rotationMatrix(), cam_pose2.translationMatrix())
-    ptcloud3_transformed = transform_pointcloud_vectorized(ptcloud3[:].copy(), cam_pose3.rotationMatrix(), cam_pose3.translationMatrix())
+    ptcloud2_transformed = transform_pointcloud_vectorized(
+        ptcloud2[:].copy(), cam_pose2.rotationMatrix(), cam_pose2.translationMatrix())
+    ptcloud3_transformed = transform_pointcloud_vectorized(
+        ptcloud3[:].copy(), cam_pose3.rotationMatrix(), cam_pose3.translationMatrix())
 
     # project cam2 and cam3 backward toward cam1
     ptcloud_cam2_on_cam1 = transform_pointcloud_vectorized(
-        ptcloud2_transformed[:].copy(), 
+        ptcloud2_transformed[:].copy(),
         inv(cam_pose1.rotationMatrix()),
-        cam_pose1.translationMatrix()*-1)
-    
+        cam_pose1.translationMatrix() * -1)
+
     ptcloud_cam3_on_cam1 = transform_pointcloud_vectorized(
-        ptcloud3_transformed[:].copy(), 
+        ptcloud3_transformed[:].copy(),
         inv(cam_pose1.rotationMatrix()),
-        cam_pose1.translationMatrix()*-1)
-    
+        cam_pose1.translationMatrix() * -1)
+
     # reproject into new cam frame
-    img_pts2_1 = unproject_pointcloud(ptcloud_cam2_on_cam1,cam_params)            
-    img_pts3_1 = unproject_pointcloud(ptcloud_cam3_on_cam1,cam_params)
-    
-    img_pts = np.vstack( ( img_pts2_1 , img_pts3_1 ) )
-    img_reproj = np.zeros(rgb1.shape,rgb1.dtype)
-    
-    debug_diff = reproject_ptcloud(iteration , img_pts , img_reproj)
+    img_pts2_1 = unproject_pointcloud(ptcloud_cam2_on_cam1, cam_params)
+    img_pts3_1 = unproject_pointcloud(ptcloud_cam3_on_cam1, cam_params)
 
-    if debug: showImageSet([debug_diff , img_reproj],["without_inpainted", "with_inpainted"])
+    img_pts = np.vstack((img_pts2_1, img_pts3_1))
+    img_reproj = np.zeros(rgb1.shape, rgb1.dtype)
 
-    img_reproj = cv2.morphologyEx( img_reproj , cv2. MORPH_CLOSE,  (2,2))
-    img_reproj = cv2.morphologyEx( img_reproj , cv2. MORPH_OPEN,  (2,2))
-    img_reproj = cv2.bilateralFilter(img_reproj, 10 , 30, 50)
-    
+    debug_diff = reproject_ptcloud(
+        iteration, img_pts, img_reproj, radius=radius)
+
+    img_reproj = scatter_point_filtering(img_reproj)
+    if debug:
+        showImageSet([debug_diff, img_reproj], [
+                     "without_inpainted", "with_inpainted"])
+
     return img_reproj
 
 
-def black_bg(img_reproj , img_clr , mask_front , mask_bk):
-    img_reproj[ mask_bk == 0 ] = 0
-    img_clr[ mask_front == 0 ] = 0
-    return img_reproj , img_clr
-
-def white_bg(img_reproj , img_clr , mask_front , mask_bk):
-    img_reproj[ mask_bk == 0 ] = 255
-    img_clr[ mask_front == 0 ] = 255
-    return img_reproj , img_clr
-
 class DataPreprocessor():
-    def __init__(self,config, img_shape=(240,320), num_cam=3 ):
+    def __init__(self, config, img_shape=(240, 320), num_cam=3):
         self.frame_num = 0
         self.config = config
-        self.data = [ [] , [] , [] ]
-        self.current_mask = [ None , None , None ]
+        self.data = [[], [], []]
+        self.current_mask = [None, None, None]
         self.num_cam = num_cam
-        self.fgmask = cv2.createBackgroundSubtractorMOG2()
         self.load_data()
-    
-    
+
     # actual filtering
     @timeit(log_info="Obtain all the traning data ")
-    def get_backward_frame(self,debug=False,save=False ):
-        # for each pair of camera images 
-        for i , ((image_cam1_color , image_cam1_depth),(image_cam2_color , image_cam2_depth), (image_cam3_color, image_cam3_depth)) in enumerate(zip(self.data[0] , self.data[1] , self.data[2])):
-            img_reproj = two_camera_reprojection(i , self.cam_params , self.sensor_props ,
-                            image_cam2_color , image_cam3_color , 
-                            image_cam2_depth , image_cam3_depth , debug )
-            
+    def get_backward_frame(self, debug=True, save=False):
+        # for each pair of camera images
+        for i, ((image_cam1_color, image_cam1_depth), (image_cam2_color, image_cam2_depth),
+                (image_cam3_color, image_cam3_depth)) in enumerate(zip(self.data[0], self.data[1], self.data[2])):
+
+            img_reproj = two_camera_reprojection(
+                i,
+                self.cam_params,
+                self.sensor_props,
+                image_cam2_color,
+                image_cam3_color,
+                image_cam2_depth,
+                image_cam3_depth,
+                debug=False,
+                radius=self.config.radius)
+
             # ===================================================================
             # Mask remove black color
             # ===================================================================
-            
-            mask_path1 = "./mask/{}/cam{}_mask{}.png".format(self.config.strFolderName,0,i)
-            mask_path2 = "./mask/{}/cam{}_mask{}.png".format(self.config.strFolderName,1,i)
-            mask_path3= "./mask/{}/cam{}_mask{}.png".format(self.config.strFolderName,2,i)
-            
-            mask1 = cv2.imread(mask_path1,-1)
-            mask1 = np.dstack((mask1,mask1,mask1)).astype(np.uint8)
-            
+            mask_path1 = "./mask/{}/cam{}_mask{}.png".format(
+                self.config.strFolderName, 0, i)
+            mask_path2 = "./mask/{}/cam{}_mask{}.png".format(
+                self.config.strFolderName, 1, i)
+            mask_path3 = "./mask/{}/cam{}_mask{}.png".format(
+                self.config.strFolderName, 2, i)
 
-            mask2 = cv2.imread(mask_path2,-1)
-            mask2 = np.dstack((mask2,mask2,mask2)).astype(np.uint8)
-            
+            mask1 = cv2.imread(mask_path1, -1)
+            mask1 = np.dstack((mask1, mask1, mask1)).astype(np.uint8)
 
-            mask3 = cv2.imread(mask_path3,-1)
-            mask3 = np.dstack((mask3,mask3,mask3)).astype(np.uint8)
+            mask2 = cv2.imread(mask_path2, -1)
+            mask2 = np.dstack((mask2, mask2, mask2)).astype(np.uint8)
 
-            mask_reproj = two_camera_reprojection(i ,self.cam_params , self.sensor_props ,
-                            mask2 , mask3,
-                            image_cam2_depth , image_cam3_depth)
-            
-            img_reproj_bk , img_cam1_color_bk = black_bg(
-                img_reproj[:].copy() , image_cam1_color[:].copy() ,
-                mask1 , mask_reproj)
-            
-            img_reproj_wh , img_cam1_color_wh = white_bg(
-                img_reproj[:].copy() , image_cam1_color[:].copy() ,
-                mask1 , mask_reproj)
-            
-            
-            if debug: 
-                showImageSet([img_reproj_bk,img_cam1_color_bk , img_reproj_wh , img_cam1_color_wh ],
-                            ["front_bk","back_bk" , "front_wh" , "back_wh" ])
+            mask3 = cv2.imread(mask_path3, -1)
+            mask3 = np.dstack((mask3, mask3, mask3)).astype(np.uint8)
 
-            #  folders to be saved on 
-            save_path = self.config.strFilterFullPath 
+            mask_reproj = two_camera_reprojection(
+                i,
+                self.cam_params,
+                self.sensor_props,
+                mask2,
+                mask3,
+                image_cam2_depth,
+                image_cam3_depth,
+                debug=debug)
+
+            img_reproj_bk, img_cam1_color_bk = black_bg(
+                img_reproj[:].copy(), image_cam1_color[:].copy(),
+                mask1, mask_reproj)
+
+            img_reproj_wh, img_cam1_color_wh = white_bg(
+                img_reproj[:].copy(), image_cam1_color[:].copy(),
+                mask1, mask_reproj)
+
+            if debug:
+                showImageSet([img_reproj_bk, img_cam1_color_bk, img_reproj_wh, img_cam1_color_wh],
+                             ["front_bk", "back_bk", "front_wh", "back_wh"])
+
+            #  folders to be saved on
+            save_path = self.config.strFilterFullPath
             save_path_bk = self.config.strFilterFullPathBlack
             check_folders(save_path_bk)
-            if save: 
-                self.save(save_path , i , img_cam1_color_wh , img_reproj_wh)
-                self.save(save_path_bk , i , img_cam1_color_bk , img_reproj_bk)
-            
+            if save:
+                self.save(save_path, i, img_cam1_color_wh, img_reproj_wh)
+                self.save(save_path_bk, i, img_cam1_color_bk, img_reproj_bk)
 
-    def save(self,save_path, index , train , label ):
-        save_train_folder_path , save_target_folder_path = os.path.join(save_path,"train"), os.path.join(save_path,"target")
-        
-        check_folders(save_train_folder_path )
-        check_folders(save_target_folder_path )
+    def save(self, save_path, index, train, label):
+        save_train_folder_path, save_target_folder_path = os.path.join(
+            save_path, "train"), os.path.join(save_path, "target")
 
-        save_target_file_name  = os.path.join(
+        check_folders(save_train_folder_path)
+        check_folders(save_target_folder_path)
+
+        save_target_file_name = os.path.join(
             save_target_folder_path,
-            "label{}.png".format(index)) 
+            "label{}.png".format(index))
         save_train_file_name = os.path.join(
             save_train_folder_path,
             "train{}.png".format(index))
 
-        cv2.imwrite(save_target_file_name,label)
-        cv2.imwrite(save_train_file_name ,train)
-    
+        cv2.imwrite(save_target_file_name, label)
+        cv2.imwrite(save_train_file_name, train)
 
     # helper func for gettin rgb an d
-    def get_rgbd(self,cam,frame_num):
-        img_depth = cv2.imread(self.sensor_props[cam].imgs_depth[frame_num],-1)
-        img_clr = cv2.imread(self.sensor_props[cam].imgs_color[frame_num])
-        return  img_clr ,img_depth
 
+    def get_rgbd(self, cam, frame_num):
+        img_depth = cv2.imread(
+            self.sensor_props[cam].imgs_depth[frame_num], -1)
+        img_clr = cv2.imread(self.sensor_props[cam].imgs_color[frame_num])
+        return img_clr, img_depth
 
     def load_data(self):
         self.sensor_props = ReadManualCalibPoses(self.config.strPoseLocation)
-        for s in self.sensor_props: s.load_image_files(self.config.strVideoFullPath)
-        
-        self.cam_params = GetCameraParameters("OrbbecAstra", 0.5)        
+        for s in self.sensor_props:
+            s.load_image_files(self.config.strVideoFullPath)
+
+        self.cam_params = GetCameraParameters("OrbbecAstra", 0.5)
         self.total_frame_num = len(self.sensor_props[0].imgs_color)
-        
-        # obtain the each camera images
-        for cam in range( self.num_cam ):
-            path = "./mask/{}/cam{}_mask0.png".format(self.config.strFolderName , cam)
-            if os.path.isfile(path):self.current_mask[cam] = cv2.imread(path , -1)
-            else:self.foreground_extraction(cam,0)            
 
+        # Obtain all initial mask
+        for cam in range(self.num_cam):
+            path = "./mask/{}/cam{}_mask0.png".format(
+                self.config.strFolderName, cam)
+            if os.path.isfile(path):
+                self.current_mask[cam] = cv2.imread(path, -1)
+            else:
+                self.foreground_extraction(cam, 0)
+        self.rgbd_filtering(debug=False)
 
-    @timeit(log_info="Extracted all the images from each frame")    
-    def rgbd_filtering(self,debug=False):
+    @timeit(log_info="Extracted all the masks from each frame")
+    def rgbd_filtering(self, debug=False):
         if debug:
             for camera in range(self.num_cam):
-                self.images_extraction(camera , debug=debug)
+                self.images_extraction(camera, debug)
+                print("Running camera extraction ", camera)
         else:
             print("debug verbose 0 .....")
-            threads = []
-            for camera in range(self.num_cam):
-                process = Thread(target=self.images_extraction,args=[camera])
-                process.start()
-                threads.append(process)
-            for process in threads: process.join() 
-            
+            self.threaded_images_extraction(self)
+
     #  wrapper function for multi-thread computing the image background
-    def images_extraction(self,cam,debug=False):
+    @staticmethod
+    @multi_threads_wrapper([0, 1, 2])
+    def threaded_images_extraction(arg, *args):
+        arg, cam = arg[0], args[0]
+        for frame_num in range(arg.total_frame_num):
+            arg.foreground_extraction(
+                cam, frame_num, save=True)  # remove background
+
+    def images_extraction(self, cam, debug=False):
         start = time()
         for frame_num in range(self.total_frame_num):
-            self.foreground_extraction(cam,frame_num,debug=debug,save=True) # remove background
-        end = time() 
-        time_taken =  round (end - start ,2)
-        print("Finished extracting camera {}, Time: {} ms".format(cam, time_taken))
-    
-    def foreground_extraction(self ,cam, frame_num,debug = False ,save=False): 
+            self.foreground_extraction(
+                cam, frame_num, debug=debug, save=False)  # remove background
+        end = time()
+        time_taken = round(end - start, 2)
+        print(
+            "Finished extracting camera {}, Time: {} ms".format(
+                cam, time_taken))
+
+    def foreground_extraction(self, cam, frame_num, debug=False, save=False):
         check_folders("./mask/{}".format(self.config.strFolderName))
-        mask_path ="./mask/{}/cam{}_mask0.png".format(self.config.strFolderName , cam)
-        img_color , img_depth = self.get_rgbd(cam,frame_num)        
-        next_mask, num_mask = self.filter_img_to_labels(cam,img_depth,debug)
-        
-        if not os.path.isfile(mask_path) and frame_num == 0 : 
+        mask_path = "./mask/{}/cam{}_mask{}.png".format(
+            self.config.strFolderName, cam, frame_num)
+        img_color, img_depth = self.get_rgbd(cam, frame_num)
+        next_mask, num_mask = self.connected_comp_labeling(
+            cam, img_depth, debug=False)
+        result = None
+
+        if not os.path.isfile(mask_path) and frame_num == 0:
             # the first frame was running require interactive filtering
-            cv2.namedWindow("labels")
-            cv2.setMouseCallback("labels", click_region_call_bk,[next_mask,self,cam]) # obtain the masked image 
-            cv2.imshow("labels",convert_depth_2_rgb(next_mask,max_depth=num_mask//2))
+            cv2.namedWindow("select first labels")
+            cv2.setMouseCallback(
+                "select first labels", click_region_call_bk, [
+                    next_mask, self, cam])  # obtain the masked image
+            cv2.imshow(
+                "select first labels",
+                convert_depth_2_rgb(
+                    next_mask,
+                    max_depth=num_mask // 2))
             k = cv2.waitKey(0) & 0xff
-            if k == ord('q'): cv2.destroyAllWindows()
-        # start filtering from 1 onward
-        prev_mask = self.current_mask[cam].astype(np.uint8)
-        
-        # compute the result of the function
-        comparison = np.array(
-            [ compute_img_diff( label , prev_mask ,  next_mask ) 
-                    for label in np.unique(next_mask) ])
-        result = np.zeros(next_mask.shape)
-        result[next_mask == np.argmax(comparison)] = 1  # 255
+            if k == ord('q'):
+                cv2.destroyAllWindows()
+            result = self.current_mask[cam]
+        elif os.path.isfile(mask_path) and frame_num != 0:
+            result = cv2.imread(mask_path, -1)
+        else:
+            # compute the result of the function
+            prev_mask = self.current_mask[cam].astype(np.uint8)
+            comparison = np.array(
+                [compute_img_diff(label, prev_mask, next_mask)
+                 for label in np.unique(next_mask)])
+            result = np.zeros(next_mask.shape)
+            result[next_mask == np.argmax(comparison)] = 1  # 255
 
-        # for some of the filtering is inverting the expected result 
-        non_zero_size = np.count_nonzero(result)
-        zero_size = result.shape[0]*result.shape[1]- non_zero_size
-        if zero_size < non_zero_size : result = 1 - result
-    
-        result[result==1] = 255  # creating the mask for given frame
-    
-        mask = np.dstack((result,result,result)).astype(np.uint8)
-        clr = np.bitwise_and(img_color,mask)  
-        
-        self.data[cam].insert(frame_num , (clr,img_depth))
-        if debug: 
-            os.system("clear")
-            print("frame_num {} comparison result is {} and max label is {}".format(frame_num ,comparison[np.argmax(comparison)] , np.argmax(comparison)),end="\n")
-            showImageSet([self.current_mask[cam],prev_mask,clr,convert_depth_2_rgb(img_depth),mask],
-                        ["current_mask ","prev_mask ","clr" , "depth","mask"])
+            # for some of the filtering is inverting the expected result
+            non_zero_size = np.count_nonzero(result)
+            zero_size = result.shape[0] * result.shape[1] - non_zero_size
+            if zero_size < non_zero_size:
+                result = 1 - result
 
+            result[result == 1] = 255  # creating the mask for given frame
+            if save:
+                cv2.imwrite(
+                    "./mask/{}/cam{}_mask{}.png".format(
+                        self.config.strFolderName, cam, frame_num), result.astype(
+                        np.uint8))
+
+        mask = np.dstack((result, result, result)).astype(np.uint8)
+        clr = np.bitwise_and(img_color, mask)
+
+        self.data[cam].insert(frame_num, (clr, img_depth))
+
+        if debug:
+            showImageSet([self.current_mask[cam], clr, convert_depth_2_rgb(
+                img_depth), mask], ["current_mask ", "clr", "depth", "mask"])
         self.current_mask[cam] = result.astype(np.uint8)
-        if save: cv2.imwrite("./mask/{}/cam{}_mask{}.png".format(self.config.strFolderName,cam,frame_num),result.astype(np.uint8))
 
-    def filter_img_to_labels(self,cam,img_depth, debug=False):
+    def connected_comp_labeling(self, cam, img_depth, debug=True):
         # Extracting the important region relative to previous filters
         param = self.config.filter_param[self.config.strFolderName][cam]
-        dsize, ksize , connectivity = param['dsize'] , param['ksize'], param['connectivity']
+        dsize, ksize, connectivity = param['dsize'], param['ksize'], param['connectivity']
         bilater = param['bilater']
         grad = param['grad']
-        m_open , m_close = param['open'] , param['close']
+        m_open, m_close = param['open'], param['close']
         max_depth = param['maxDep']
         right_xmin = param['rx']
         left_xmin = param['lx']
         lower_y = param['yd']
-        if max_depth <= 2000: raise ValueError("invalid max depth size, at least greater 2000") 
-        if img_depth.any():img_depth[ img_depth >= max_depth ] = 0 
+        if max_depth <= 2000:
+            raise ValueError("invalid max depth size, at least greater 2000")
+        if img_depth.any():
+            img_depth[img_depth >= max_depth] = 0
+        # # bilateralfiltering to increase the thickness of an image
+        dp_smooth = scatter_point_filtering(
+            img_depth, m_close, m_open, grad, dsize, bilater, ksize)
+        _, bin_mask = cv2.threshold(
+            dp_smooth.astype(
+                np.uint8), 0, 255, cv2.THRESH_BINARY)
 
-        
-        # bilateralfiltering to increase the thickness of an image
-        dp_clean = cv2.morphologyEx( img_depth , cv2. MORPH_CLOSE,   m_close )
-        dp_clean = cv2.morphologyEx( dp_clean , cv2.MORPH_OPEN ,  m_open )
-        
-        dp_smooth = cv2.bilateralFilter(dp_clean.astype(np.float32), dsize , bilater[0], bilater[1])
-        # Forground extraction to intensified the features
-        dp_grad = cv2.morphologyEx( dp_smooth , cv2.MORPH_GRADIENT , ksize)
-        dp_smooth[ dp_grad > grad ] = 0  # remove some scatter points
-
-        _ , bin_mask = cv2.threshold(dp_smooth.astype(np.uint8), 0 ,255 , cv2.THRESH_BINARY)
-        
-        if right_xmin: bin_mask[:,right_xmin:] = 0
-        if left_xmin: bin_mask[:,0:left_xmin] = 0
-        if lower_y: 
-            bin_mask[lower_y:,0:left_xmin] = 0 
-            bin_mask[lower_y:,right_xmin:] = 0 
+        if right_xmin:
+            bin_mask[:, right_xmin:] = 0
+        if left_xmin:
+            bin_mask[:, 0:left_xmin] = 0
+        if lower_y:
+            bin_mask[lower_y:, 0:left_xmin] = 0
+            bin_mask[lower_y:, right_xmin:] = 0
 
         # labels the each region of labels
-        num_labels , labels , stats , centroids = cv2.connectedComponentsWithStats(bin_mask, connectivity)
-        # if debug: 
-        #     img_to_show = [ convert_depth_2_rgb(img,max_depth=num_labels//2) for img in 
-        #         [dp_smooth.copy() , dp_grad.copy() , labels.copy()] ]
-        #     img_to_show_names = [ "smooth" , "grad" , "label"]
-        #     showImageSet( img_to_show , img_to_show_names )
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+            bin_mask, connectivity)
+        if debug:
+            img_to_show = [
+                convert_depth_2_rgb(
+                    img,
+                    max_depth=num_labels //
+                    2) for img in [
+                    convert_depth_2_rgb(
+                        img_depth,
+                        max_depth=7000),
+                    dp_smooth.copy(),
+                    labels.copy()]]
+            img_to_show_names = ["smooth", "label"]
+            showImageSet(img_to_show, img_to_show_names)
 
         return labels, num_labels
 
-    def callback(self,mask,cam):
-        
-        print("Store mask in {} cam {} at frame {}".format(self.config.strVideoFolder,cam, self.frame_num) )
-        self.current_mask[cam] = mask.astype(np.uint8) # this one 
-        path = "./mask/{}/cam{}_mask0.png".format(self.config.strFolderName,cam)
-        print("Call back, check path.",path)
+    def callback(self, mask, cam):
+        print("Store mask in {} cam {} at frame {}".format(
+            self.config.strVideoFolder, cam, self.frame_num))
+        self.current_mask[cam] = mask.astype(np.uint8)  # this one
+        path = "./mask/{}/cam{}_mask0.png".format(
+            self.config.strFolderName, cam)
         # store the images in the mask/SAMPLE_NAME/mask.png
-        cv2.imwrite(path,self.current_mask[cam])
-        
+        cv2.imwrite(path, self.current_mask[cam])
 
-    def filter_demo(self,cam):
-        self.images_extraction(cam , debug=True)
+    def filter_demo(self, cam):
+        self.images_extraction(cam, debug=True)
 
-            
     def demo(self):
-        self.load_data()
-        self.rgbd_filtering()
-        self.get_backward_frame(save=True)
-        
+        self.get_backward_frame(save=False, debug=True)
+
 
 if __name__ == "__main__":
     demo = DataPreprocessor(config)
     demo.demo()
-    
-    
-    
-    
