@@ -25,11 +25,11 @@ def l1_loss(y_true, y_pred):
 class DeepConvAutoEncoder(data_model):
     def __init__(self, epoch=100000, img_shape=[256, 256, 3]):
         super().__init__(
-            "deep_conv_autoencoder_bk_lr_1e-4",
+            "deep_conv_autoencoder_wh_lr_1e-4",
             "generator",
             epochs=epoch,
             batch_size=20,
-            white_bk=False)
+            white_bk=True)
         self.build(self.img_shape)
         self.n_batch_per_epoch = 10
         check_folders(self.weight_path)
@@ -41,9 +41,9 @@ class DeepConvAutoEncoder(data_model):
             self.batch_size,
             model_name="generator_unet_deconv",
             activation=None)
-        opt_discriminator = Adam(lr=1e-4, epsilon=10e-8)
+        opt_discriminator = Adam(lr=1e-4, , beta_1 =0.9 , beta_2=0.999,epsilon=10e-8)
         self.model.compile(
-            loss="categorical_crossentropy",
+            loss=l1_loss,
             optimizer=opt_discriminator)
 
     def log_checkpoint(self, epoch, batch, loss):

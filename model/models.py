@@ -4,7 +4,7 @@ import sys
 import os
 
 from keras.layers.core import Flatten, Dense, Dropout, Activation, Lambda, Reshape
-from keras.layers.convolutional import Conv2D, Conv2DTranspose, UpSampling2D
+from keras.layers.convolutional import Conv2D, Deconv2D, UpSampling2D
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.normalization import BatchNormalization
 from keras.layers import Input, Concatenate
@@ -145,7 +145,7 @@ def generator_unet_deconv(
 
     x = Activation("relu")(list_decoder[-1])
     o_shape = [batch_size, img_dim[0], img_dim[1], img_dim[2]]
-    x = Conv2DTranspose(
+    x = Deconv2D(
         nb_channels, (3, 3), output_shape=o_shape, strides=(
             2, 2), padding="same")(x)
     x = Activation("relu")(x)
