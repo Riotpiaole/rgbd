@@ -5,7 +5,7 @@ import numpy as np
 from keras.optimizers import Adam
 from keras.utils import generic_utils
 from keras.preprocessing import image
-
+import keras.backend as K
 sys.path.append("../")
 
 from model import data_model, inverse_normalization
@@ -41,7 +41,7 @@ class DeepConvAutoEncoder(data_model):
             self.batch_size,
             model_name="generator_unet_deconv",
             activation=None)
-        opt_discriminator = Adam(lr=1e-4, , beta_1 =0.9 , beta_2=0.999,epsilon=10e-8)
+        opt_discriminator = Adam(lr=1e-4, beta_1 =0.9 , beta_2=0.999,epsilon=10e-8)
         self.model.compile(
             loss=l1_loss,
             optimizer=opt_discriminator)
