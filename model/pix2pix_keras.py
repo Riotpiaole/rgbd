@@ -261,5 +261,5 @@ class K_DCGAN(data_model):
 
 if __name__ == "__main__":
     model = K_DCGAN()
-    model.train(retrain=True)
+    # model.train(retrain=True)
     model.test_img()

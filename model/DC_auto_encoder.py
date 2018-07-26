@@ -18,7 +18,6 @@ from utils import (
     training_wrapper
 )
 
-
 def l1_loss(y_true, y_pred):
     return K.sum(K.abs(y_pred - y_true), axis=-1)
 
@@ -32,7 +31,7 @@ class DeepConvAutoEncoder(data_model):
             batch_size=20,
             white_bk=False)
         self.build(self.img_shape)
-        self.n_batch_per_epoch = 100
+        self.n_batch_per_epoch = 10
         check_folders(self.weight_path)
 
     def build(self, img_shape):
@@ -126,5 +125,6 @@ class DeepConvAutoEncoder(data_model):
 
 if __name__ == "__main__":
     model = DeepConvAutoEncoder()
-    model.train(retrain=False)
+    model.model.summary()
+    # model.train(retrain=False)
     model.test_img()
