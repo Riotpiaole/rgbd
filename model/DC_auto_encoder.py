@@ -6,7 +6,6 @@ from keras.optimizers import Adam
 from keras.utils import generic_utils
 from keras.preprocessing import image
 import keras.backend as K
-
 sys.path.append("../")
 
 from model import data_model, inverse_normalization
