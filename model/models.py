@@ -1,7 +1,5 @@
 from keras.models import Model
-import numpy as np
 import sys
-import os
 
 from keras.layers.core import Flatten, Dense, Dropout, Activation, Lambda, Reshape
 from keras.layers.convolutional import Conv2D, Deconv2D, UpSampling2D
@@ -93,12 +91,12 @@ def generator_unet_deconv(
     h, w, nb_channels = img_dim
     min_s = min(img_dim[:-1])
     unet_input = Input(shape=img_dim, name="unet_input")
-    
+
     # Prepare encoder filters
     nb_conv = int(np.floor(np.log(min_s) / np.log(2)))
 
     list_nb_filters = [nb_filters * min(8, (2 ** i)) for i in range(nb_conv)]
-    
+
     # Encoder
     list_encoder = [Conv2D(list_nb_filters[0], (3, 3), strides=(
         2, 2), name="unet_conv2D_1", padding="same")(unet_input)]
@@ -110,7 +108,7 @@ def generator_unet_deconv(
             list_encoder[-1], f, name, bn_mode, bn_axis, activation=activation)
         list_encoder.append(conv)
         h, w = h / 2, w / 2
-   
+
     # Prepare decoder filters
     list_nb_filters = list_nb_filters[:-1][::-1]
     if len(list_nb_filters) < nb_conv - 1:
@@ -149,7 +147,6 @@ def generator_unet_deconv(
         nb_channels, (3, 3), output_shape=o_shape, strides=(
             2, 2), padding="same")(x)
     x = Activation("relu")(x)
-
 
     generator_unet = Model(inputs=[unet_input], outputs=[x])
 

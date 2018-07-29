@@ -5,17 +5,18 @@ from os.path import isfile, join
 
 # import config
 from config import config
-
+from threading import Thread
 
 import cv2
 import sys
 import numpy as np
 
 from numpy.linalg import inv
-
+import h5py
 # Must have function for image filtering
 from utils import (
     transform_pointcloud_vectorized,
+    multi_process_wrapper,
     scatter_point_filtering,
     unproject_pointcloud,
     click_region_call_bk,
@@ -24,6 +25,7 @@ from utils import (
     compute_img_diff,
     black_bg,
     white_bg,
+    chunks,
 )
 
 # Helper function
@@ -43,19 +45,19 @@ from utils_rgbd_images import (
 )
 
 
-config = config("ImgSeq_Po_02_Bag", radius=0)
-
-
 def two_camera_reprojection(
         iteration,
         cam_params,
         sensor_props,
+        result,
         rgb1,
         rgb2,
         dep1,
         dep2,
         debug=False,
-        radius=2):
+        radius=2,
+        suffix=""
+):
     cam_pose1, cam_pose2, cam_pose3 = sensor_props
 
     ptcloud2, _ = image_fusion(cam_params, dep1, rgb1)
@@ -85,71 +87,112 @@ def two_camera_reprojection(
     img_reproj = np.zeros(rgb1.shape, rgb1.dtype)
 
     debug_diff = reproject_ptcloud(
-        iteration, img_pts, img_reproj, radius=radius)
+        iteration, img_pts, img_reproj, radius=radius, suffix=suffix)
 
     img_reproj = scatter_point_filtering(img_reproj)
     if debug:
         showImageSet([debug_diff, img_reproj], [
                      "without_inpainted", "with_inpainted"])
-
-    return img_reproj
+    result[:] = img_reproj
 
 
 class DataPreprocessor():
-    def __init__(self, config, img_shape=(240, 320), num_cam=3):
+    def __init__(
+        self,
+        config,
+        img_shape=(
+            240,
+            320),
+        num_cam=3,
+        debug_mode=False,
+        redo=False
+    ):
+
         self.frame_num = 0
         self.config = config
+        self.debug_mode = debug_mode
         self.data = [[], [], []]
         self.current_mask = [None, None, None]
+
+        self.masks_dir = "./mask/%s/masks.npy" % self.config.strFolderName
+
+        # calibraring
+        if redo:
+            os.system("rm -rf %s" % self.masks_dir)
+
+        self.masks = [[], [], []]
+
+        self.datasets = []
+        self.datasets_bk = []
+
         self.num_cam = num_cam
         self.load_data()
 
     # actual filtering
     @timeit(log_info="Obtain all the traning data ")
-    def get_backward_frame(self, debug=True, save=False):
+    def get_backward_frame(self, debug=False, save=False):
         # for each pair of camera images
-        for i, ((image_cam1_color, image_cam1_depth), (image_cam2_color, image_cam2_depth),
-                (image_cam3_color, image_cam3_depth)) in enumerate(zip(self.data[0], self.data[1], self.data[2])):
 
-            img_reproj = two_camera_reprojection(
-                i,
+        for frame_num, (
+                (image_cam1_color, image_cam1_depth),
+                (image_cam2_color, image_cam2_depth),
+                (image_cam3_color, image_cam3_depth),
+                (mask1, mask2, mask3)
+            ) in enumerate(
+            zip(*self.data,
+                zip(*self.masks)
+                )
+        ):
+
+            # ===============================================================
+            # Mask remove black color
+            # ===============================================================
+
+            #  re-do unprojection for predicting the images
+            mask1 = np.dstack((mask1, mask1, mask1)).astype(np.uint8)
+            mask2 = np.dstack((mask2, mask2, mask2)).astype(np.uint8)
+            mask3 = np.dstack((mask3, mask3, mask3)).astype(np.uint8)
+
+            img_reproj = np.zeros(
+                image_cam1_color.shape,
+                image_cam1_color.dtype)
+            mask_reproj = np.zeros(
+                image_cam1_color.shape,
+                image_cam1_color.dtype)
+
+            repoj_args = [
+                frame_num,
                 self.cam_params,
                 self.sensor_props,
+                img_reproj,
                 image_cam2_color,
                 image_cam3_color,
                 image_cam2_depth,
                 image_cam3_depth,
-                debug=False,
-                radius=self.config.radius)
+                False,
+                self.config.radius,
+                "%s img_reproj_reproj" % self.config.strFolderName]
 
-            # ===================================================================
-            # Mask remove black color
-            # ===================================================================
-            mask_path1 = "./mask/{}/cam{}_mask{}.png".format(
-                self.config.strFolderName, 0, i)
-            mask_path2 = "./mask/{}/cam{}_mask{}.png".format(
-                self.config.strFolderName, 1, i)
-            mask_path3 = "./mask/{}/cam{}_mask{}.png".format(
-                self.config.strFolderName, 2, i)
+            mask_args = repoj_args.copy()
+            mask_args[3] = mask_reproj
+            mask_args[4] = mask2
+            mask_args[5] = mask3
+            mask_args[10] = "%s mask_reproj" % self.config.strFolderName
 
-            mask1 = cv2.imread(mask_path1, -1)
-            mask1 = np.dstack((mask1, mask1, mask1)).astype(np.uint8)
+            if debug:
+                two_camera_reprojection(*repoj_args)
+                two_camera_reprojection(*mask_args)
+            else:
+                threads = []
+                for arg in [repoj_args, mask_args]:
+                    process = Thread(
+                        target=two_camera_reprojection, args=[
+                            *arg])
+                    process.start()
+                    threads.append(process)
 
-            mask2 = cv2.imread(mask_path2, -1)
-            mask2 = np.dstack((mask2, mask2, mask2)).astype(np.uint8)
-
-            mask3 = cv2.imread(mask_path3, -1)
-            mask3 = np.dstack((mask3, mask3, mask3)).astype(np.uint8)
-
-            mask_reproj = two_camera_reprojection(
-                i,
-                self.cam_params,
-                self.sensor_props,
-                mask2,
-                mask3,
-                image_cam2_depth,
-                image_cam3_depth,
-                debug=debug)
+                for thread in threads:
+                    thread.join()
 
             img_reproj_bk, img_cam1_color_bk = black_bg(
                 img_reproj[:].copy(), image_cam1_color[:].copy(),
@@ -167,16 +210,32 @@ class DataPreprocessor():
             save_path = self.config.strFilterFullPath
             save_path_bk = self.config.strFilterFullPathBlack
             check_folders(save_path_bk)
-            if save:
-                self.save(save_path, i, img_cam1_color_wh, img_reproj_wh)
-                self.save(save_path_bk, i, img_cam1_color_bk, img_reproj_bk)
 
-    def save(self, save_path, index, train, label):
+            if save:
+                self.save(
+                    save_path,
+                    frame_num,
+                    img_cam1_color_wh,
+                    img_reproj_wh)
+                self.save(
+                    save_path_bk,
+                    frame_num,
+                    img_cam1_color_bk,
+                    img_reproj_bk,
+                    bk=True)
+            print("")
+
+    def save(self, save_path, index, train, label, bk=False):
         save_train_folder_path, save_target_folder_path = os.path.join(
             save_path, "train"), os.path.join(save_path, "target")
 
         check_folders(save_train_folder_path)
         check_folders(save_target_folder_path)
+
+        if bk:
+            self.datasets_bk.append((train, label))
+        else:
+            self.datasets.append((train, label))
 
         save_target_file_name = os.path.join(
             save_target_folder_path,
@@ -188,15 +247,34 @@ class DataPreprocessor():
         cv2.imwrite(save_target_file_name, label)
         cv2.imwrite(save_train_file_name, train)
 
-    # helper func for gettin rgb an d
-
     def get_rgbd(self, cam, frame_num):
         img_depth = cv2.imread(
             self.sensor_props[cam].imgs_depth[frame_num], -1)
         img_clr = cv2.imread(self.sensor_props[cam].imgs_color[frame_num])
         return img_clr, img_depth
 
+    @timeit(log_info="Loading all rgbd images")
+    def load_rgbd_imgs(self):
+        threads = []
+
+        def get_rgbds(
+            obj, cam): return [
+            obj.data[cam].insert(
+                num, obj.get_rgbd(
+                    cam, num)) for num in range(
+                obj.total_frame_num)]
+
+        for cam in range(self.num_cam):
+            process = Thread(target=get_rgbds, args=[self, cam])
+            process.start()
+            threads.append(process)
+        for thread in threads:
+            thread.join()
+
     def load_data(self):
+        os.system("clear")
+        print("========================================================================================================")
+        print("Preprocessing dataset from \n" + str(self.config))
         self.sensor_props = ReadManualCalibPoses(self.config.strPoseLocation)
         for s in self.sensor_props:
             s.load_image_files(self.config.strVideoFullPath)
@@ -204,39 +282,73 @@ class DataPreprocessor():
         self.cam_params = GetCameraParameters("OrbbecAstra", 0.5)
         self.total_frame_num = len(self.sensor_props[0].imgs_color)
 
+        self.load_rgbd_imgs()
+
         # Obtain all initial mask
         for cam in range(self.num_cam):
-            path = "./mask/{}/cam{}_mask0.png".format(
-                self.config.strFolderName, cam)
-            if os.path.isfile(path):
-                self.current_mask[cam] = cv2.imread(path, -1)
+            if os.path.isfile(self.masks_dir):
+                self.masks = np.load(self.masks_dir)
             else:
-                self.foreground_extraction(cam, 0)
-        self.rgbd_filtering(debug=False)
+                self.extract_initial_mask(cam)
 
-    @timeit(log_info="Extracted all the masks from each frame")
+            self.current_mask[cam] = self.masks[cam][0]
+
+        # if the mask is interrupted in the middle of storage
+        if not len(self.masks[0]) == self.config.num_images:
+            self.rgbd_filtering(debug=False)
+        print("========================================================================================================")
+
     def rgbd_filtering(self, debug=False):
         if debug:
+            print("%s debug verbose 1 ....." % self.config.strFolderName)
             for camera in range(self.num_cam):
                 self.images_extraction(camera, debug)
                 print("Running camera extraction ", camera)
         else:
-            print("debug verbose 0 .....")
+            print("%s debug verbose 0 ....." % self.config.strFolderName)
+            print("Filtering images")
             self.threaded_images_extraction(self)
+            print("Saving total %s images to %s " %
+                  (len(self.masks[0]), self.masks_dir))
+            np.save(
+                "./mask/%s/masks.npy" %
+                self.config.strFolderName,
+                self.masks)
 
     #  wrapper function for multi-thread computing the image background
     @staticmethod
     @multi_threads_wrapper([0, 1, 2])
-    def threaded_images_extraction(arg, *args):
-        arg, cam = arg[0], args[0]
-        for frame_num in range(arg.total_frame_num):
-            arg.foreground_extraction(
+    def threaded_images_extraction(*args):
+        arg, cam, iteration = args
+        for frame_num in range(1, arg.total_frame_num):
+            arg.background_extraction(
                 cam, frame_num, save=True)  # remove background
+
+    def extract_initial_mask(self, cam):
+        clr, depth = self.get_rgbd(cam, 0)
+        next_mask, num_mask = self.connected_comp_labeling(
+            cam, depth, debug=False)
+        # the first frame was running require interactive filtering
+        cv2.namedWindow("select first labels")
+        cv2.setMouseCallback(
+            "select first labels", click_region_call_bk, [
+                next_mask, self, cam])  # obtain the masked image
+        cv2.imshow(
+            "select first labels",
+            convert_depth_2_rgb(
+                next_mask,
+                max_depth=num_mask // 2))
+        k = cv2.waitKey(0) & 0xff
+        if k == ord('q'):
+            cv2.destroyAllWindows()
+
+        result = self.current_mask[cam]
+        self.masks[cam].append(result.astype(np.uint8))
 
     def images_extraction(self, cam, debug=False):
         start = time()
-        for frame_num in range(self.total_frame_num):
-            self.foreground_extraction(
+        for frame_num in range(1, self.total_frame_num):
+            self.background_extraction(
                 cam, frame_num, debug=debug, save=False)  # remove background
         end = time()
         time_taken = round(end - start, 2)
@@ -244,58 +356,32 @@ class DataPreprocessor():
             "Finished extracting camera {}, Time: {} ms".format(
                 cam, time_taken))
 
-    def foreground_extraction(self, cam, frame_num, debug=False, save=False):
+    def background_extraction(self, cam, frame_num, debug=False, save=False):
         check_folders("./mask/{}".format(self.config.strFolderName))
-        mask_path = "./mask/{}/cam{}_mask{}.png".format(
-            self.config.strFolderName, cam, frame_num)
+
         img_color, img_depth = self.get_rgbd(cam, frame_num)
         next_mask, num_mask = self.connected_comp_labeling(
             cam, img_depth, debug=False)
         result = None
 
-        if not os.path.isfile(mask_path) and frame_num == 0:
-            # the first frame was running require interactive filtering
-            cv2.namedWindow("select first labels")
-            cv2.setMouseCallback(
-                "select first labels", click_region_call_bk, [
-                    next_mask, self, cam])  # obtain the masked image
-            cv2.imshow(
-                "select first labels",
-                convert_depth_2_rgb(
-                    next_mask,
-                    max_depth=num_mask // 2))
-            k = cv2.waitKey(0) & 0xff
-            if k == ord('q'):
-                cv2.destroyAllWindows()
-            result = self.current_mask[cam]
-        elif os.path.isfile(mask_path) and frame_num != 0:
-            result = cv2.imread(mask_path, -1)
-        else:
-            # compute the result of the function
-            prev_mask = self.current_mask[cam].astype(np.uint8)
-            comparison = np.array(
-                [compute_img_diff(label, prev_mask, next_mask)
-                 for label in np.unique(next_mask)])
-            result = np.zeros(next_mask.shape)
-            result[next_mask == np.argmax(comparison)] = 1  # 255
+        prev_mask = self.current_mask[cam].astype(np.uint8)
+        comparison = np.array(
+            [compute_img_diff(label, prev_mask, next_mask)
+                for label in np.unique(next_mask)])
+        result = np.zeros(next_mask.shape)
+        result[next_mask == np.argmax(comparison)] = 1  # 255
 
-            # for some of the filtering is inverting the expected result
-            non_zero_size = np.count_nonzero(result)
-            zero_size = result.shape[0] * result.shape[1] - non_zero_size
-            if zero_size < non_zero_size:
-                result = 1 - result
+        # for some of the filtering is inverting the expected result
+        non_zero_size = np.count_nonzero(result)
+        zero_size = result.shape[0] * result.shape[1] - non_zero_size
+        if zero_size < non_zero_size:
+            result = 1 - result
 
-            result[result == 1] = 255  # creating the mask for given frame
-            if save:
-                cv2.imwrite(
-                    "./mask/{}/cam{}_mask{}.png".format(
-                        self.config.strFolderName, cam, frame_num), result.astype(
-                        np.uint8))
-
+        result[result == 1] = 255  # creating the mask for given frame
+        if save:
+            self.masks[cam].append(result.astype(np.uint8))
         mask = np.dstack((result, result, result)).astype(np.uint8)
         clr = np.bitwise_and(img_color, mask)
-
-        self.data[cam].insert(frame_num, (clr, img_depth))
 
         if debug:
             showImageSet([self.current_mask[cam], clr, convert_depth_2_rgb(
@@ -360,13 +446,62 @@ class DataPreprocessor():
         # store the images in the mask/SAMPLE_NAME/mask.png
         cv2.imwrite(path, self.current_mask[cam])
 
-    def filter_demo(self, cam):
-        self.images_extraction(cam, debug=True)
-
     def demo(self):
         self.get_backward_frame(save=False, debug=True)
 
+    def unzip(self, folder):
+        ''' unpack numpy.ndarray to collections of png images train and label'''
+        data_dir = "./data/%s" % folder
+        if os.path.isfile(data_dir + "/images.npy"):
+            check_folders(data_dir + "/train")
+            check_folders(data_dir + "/target")
+            data = np.load(data_dir + "/images.npy")
+
+            @multi_threads_wrapper(list(chunks(data, 100)))
+            def save_unzip_imgs(*args):
+                data, iteration = args
+                for frame_num, (X, y) in enumerate(data):
+                    train_img = data_dir + \
+                        "/train/train%s.png" % str(iteration + frame_num)
+                    label = data_dir + \
+                        "/target/target%s.png" % str(iteration + frame_num)
+                    cv2.imwrite(train_img, X)
+                    cv2.imwrite(label, y)
+            save_unzip_imgs()
+        else:
+            print("Pre-ziped image was not found ina%s" % data_dir)
+
+    def make_dataset(self, npy=False):
+        if os.path.isfile("./data/%s" % self.config.strFolderName):
+            self.get_backward_frame(save=True, debug=False)
+
+        if npy:
+            np.save(
+                "./data/%s/images.npy" %
+                self.config.strFolderName,
+                self.datasets)
+            np.save(
+                "./data/%s/images_bk.npy" %
+                self.config.strFolderNameBlack,
+                self.datasets_bk)
+
+        print("========================================================================================================")
+        print("Saving all training images in %s | with totoal %d images |" % (
+            self.config.strFolderName,
+            len(self.datasets)
+        )
+        )
+        print("========================================================================================================")
+
+    def unzip_npy_to_imgs(self):
+        print("========================================================================================================")
+        print("unpack all images to directory %s" % self.config.FolderName)
+        self.unzip(self.config.strFolderName)
+        self.unzip(self.config.strFolderNameBlack)
+        print("========================================================================================================")
+
 
 if __name__ == "__main__":
-    demo = DataPreprocessor(config)
-    demo.demo()
+    config = config("test01")
+    demo = DataPreprocessor(config, debug_mode=False)
+    # demo.make_dataset()

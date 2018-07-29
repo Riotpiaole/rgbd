@@ -11,9 +11,9 @@ import h5py
 from utils import (
     timeit,
     read_img,
-    bgr_to_rgb,
-    rgb_to_bgr,
     check_folders,
+    check,
+    vectorized_read_img,
     alphanum_key,
     extract_patches,
     normalization,
@@ -22,14 +22,11 @@ from utils import (
     tanh_inverse_normalization
 )
 
-from functools import wraps
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from keras.preprocessing import image
-from config import config
+from config import streams_config
 
 
-Config = config("test01")
-strFolderName, strFolderNameBlack = Config.strFolderName , Config.strFolderNameBlack
 class data_model(object):
     def __init__(
             self,
@@ -41,6 +38,7 @@ class data_model(object):
                 3),
             epochs=100,
             batch_size=2,
+            validation_size=.2,
             white_bk=False,
             reverse_norm=False):
         '''data_model
@@ -55,60 +53,89 @@ class data_model(object):
         self.reverse_norm = reverse_norm
         self.nb_epochs = epochs
         self.img_shape = img_shape
-        self.weight_path = "../log/" + self.title + "/" + \
-            self.model_name  # dir for weights of dir
+        self.func = lambda x: np.array(list(map(vectorized_read_img, x)))
+        self.weight_path = "../log/" + self.title + "/"
         self.trained_weight_path = os.path.join(
             self.weight_path, "%s.h5" %
             self.model_name)
-        if white_bk:
-            self.data_dir = "../data/" + strFolderName  # dir for all of the data
-        else:
-            self.data_dir = "../data/" + strFolderNameBlack
-        self.target_dir, self.train_dir = self.data_dir + \
-            "/target", self.data_dir + "/train"
-        self.data = {}
-        self.load_data()
+        self.white_bk = white_bk
 
-    @timeit(log_info="Loading Data from dir")
-    def load_data(self):
-        train, target = os.listdir(self.train_dir), os.listdir(self.target_dir)
-        # load all of the images
-        train = sorted(train, key=alphanum_key)
-        target = sorted(target, key=alphanum_key)
+        # image with max and min with rgb as 0 to 255
+        self.max = 255.0
+        self.min = 0.0
 
-        self.data['X'] = [
-            read_img(
-                self.train_dir,
-                img,
-                self.img_shape) for img in train]
-        self.data['y'] = [
-            read_img(
-                self.target_dir,
-                img,
-                self.img_shape) for img in target]
+        # total number of images through out all of the directories
+        self.total_imgs = 5214
 
-        entire_samples = np.vstack((self.data['X'], self.data['y']))
-        self.max = np.max(entire_samples)
-        self.min = np.min(entire_samples)
-
+        self.data = {
+            "X": np.array([]),
+            "y": np.array([])
+        }
+        func_normal = normalization
         if self.reverse_norm:
-            self.data['X'] = tanh_normalization(
-                self.data['X'], self.max, self.min)
-            self.data['y'] = tanh_normalization(
-                self.data['y'], self.max, self.min)
-        else:
-            self.data['X'] = normalization(self.data['X'], self.max, self.min)
-            self.data['y'] = normalization(self.data['y'], self.max, self.min)
+            func_normal = tanh_normalization
 
+        self.parse_data(validation_size=validation_size)
+
+    def parse_data(self, validation_size=.2):
+        suffix = "black"
+        if self.white_bk:
+            suffix = ""
+        print("--------------------------------------------------------------------------------")
+        for config in streams_config().to_list:
+            self.load_data(config.strFolderName + suffix)
+        print("--------------------------------------------------------------------------------")
         # 20 % of validation sample
-        num_of_sample = math.floor(.2 * len(self.data['X']))
-        self.validation = {'X': np.array(self.data['X'][:num_of_sample]), 'y': np.array(
-            self.data['y'][:num_of_sample])}
+        num_of_sample = math.floor(validation_size * self.total_imgs)
+        self.validation = {
+            'X': np.array(self.data['X'][:num_of_sample]),
+            'y': np.array(self.data['y'][:num_of_sample])
+        }
+
         self.data['X'] = np.array(self.data['X'][num_of_sample:])
         self.data['y'] = np.array(self.data['y'][num_of_sample:])
+
+        # size references
         self.num_train, self.num_val = len(
             self.data['X']), len(
             self.validation['X'])
+        print(
+            "Loaded all image sequence total of : %d , %d training_imgs  and %d validation imgs" %
+            (self.total_imgs, self.num_train, self.num_val))
+
+    def load_data(self, data_set):
+
+        data_dir = os.path.join("../data/", data_set)
+
+        train_dir, target_dir = os.path.join(data_dir + "/train"), \
+            os.path.join(data_dir + "/target")
+        # load all of the images
+        train_files = list(map(
+            lambda img_dir: os.path.join(train_dir + "/" + img_dir),
+            sorted(os.listdir(train_dir), key=alphanum_key)
+        )
+        )
+        target_files = list(map(
+            lambda img_dir: os.path.join(train_dir + "/" + img_dir),
+            sorted(os.listdir(target_dir), key=alphanum_key)
+        )
+        )
+
+        self.data["X"] = np.append(self.data["X"], train_files)
+        self.data["y"] = np.append(self.data["X"], target_files)
+
+        # log the progress
+        print("|Loading image sequence {}| : {}%/100%".format(
+            data_set,
+            round(
+                self.data["X"].shape[0]
+                / self.total_imgs * 100, 2)
+        )
+        )
+
+    @timeit(log_info="Loading Multiple data from dirs")
+    def load_datas(self, configs):
+        pass
 
     def get_data(self, index):
         return self.data['X'][index], self.data['y'][index]
@@ -153,12 +180,15 @@ class data_model(object):
         while True:
             if not validation:
                 idx = np.random.choice(
-                    len(self.data['X']), batch_size, replace=False)
-                yield self.data['X'][idx], self.data['y'][idx]
+                    self.num_train, batch_size, replace=False)
+
+                yield self.func(self.data['X'][idx]),\
+                    self.func(self.data['y'][idx])
             else:
                 idx = np.random.choice(
-                    len(self.validation['X']), batch_size, replace=False)
-                yield self.validation['X'][idx], self.validation['y'][idx]
+                    self.num_val, batch_size, replace=False)
+                yield self.func(self.validation['X'][idx]),\
+                    self.func(self.validation['y'][idx])
 
     def build(self):
         '''Build the model for the network '''
@@ -187,13 +217,13 @@ class data_model(object):
         X_pred = self.model.predict(np.array([X]))
         if self.reverse_norm:
             X = image.array_to_img(
-                neg_inverse_normalization(
+                tanh_inverse_normalization(
                     X, self.max, self.min))
             y = image.array_to_img(
-                neg_inverse_normalization(
+                tanh_inverse_normalization(
                     y, self.max, self.min))
             X_pred = image.array_to_img(
-                neg_inverse_normalization(
+                tanh_inverse_normalization(
                     X_pred[0], self.max, self.min))
         else:
             X = image.array_to_img(
@@ -210,13 +240,13 @@ class data_model(object):
 
         result = np.hstack((X, y, X_pred))
 
-        check_folders("../figures/%s" % (self.title))
-        plt.imshow(result)
-        plt.axis("off")
-        plt.show()
-        plt.savefig(
-            "../figures/%s/current_batch_%s.png" %
-            (self.title, suffix))
+        # check_folders("../figures/%s" % (self.title))
+        # plt.imshow(result)
+        # plt.axis("off")
+        # plt.show()
+        # plt.savefig(
+        #     "../figures/%s/current_batch_%s.png" %
+        #     (self.title, suffix))
 
 
 if __name__ == "__main__":

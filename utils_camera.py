@@ -128,7 +128,7 @@ class RGBDSensorProps:
                        [np.sin(ty), 0, np.cos(ty), 0], [0, 0, 0, 1]])
         Rz = np.array([[np.cos(tz), -np.sin(tz), 0, 0], [np.sin(tz),
                                                          np.cos(tz), 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
-        return np.dot(Rx, np.dot(Ry, Rz))
+        return np.dot(Rz, np.dot(Rx, Ry))
 
     def translationMatrix(self):
         return np.array(self.pos)

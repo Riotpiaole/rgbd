@@ -1,18 +1,26 @@
 import os
 import sys
+
 from os import listdir, makedirs
 from os.path import isfile, join, exists
+
+
+from tqdm import tqdm
+
 import shutil
 import numpy as np
 
 import math
 import random
+
 from threading import Thread
+from multiprocessing import Process
+
 import re
 import cv2
 import sys
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 
 def break_point():
@@ -30,6 +38,11 @@ def tryint(s):
         return int(s)
     except BaseException:
         return s
+
+
+def image_crop(mask):
+    '''Take a mask and crop into the most reasonable region'''
+    pass
 
 
 def alphanum_key(s):
@@ -155,7 +168,13 @@ def showImageSet(imgs, names, destroy=True):
 
 def check(arr):
     '''check the given array whether or not is existing value but 0'''
-    print("checking ", np.mean(arr), np.max(arr), np.min(arr))
+    print(
+        "checking ",
+        np.mean(arr),
+        np.max(arr),
+        np.min(arr),
+        arr.dtype,
+        arr.shape)
 
 
 from time import time
@@ -322,6 +341,7 @@ def tanh_inverse_normalization(arr, arr_max, arr_min):
     return result.astype(np.uint8)
 
 
+# normalized between standard deviation
 def std_normalization(arr, arr_mean, arr_std):
     result = (arr - arr_mean) / arr_std
     return result.astype(np.uint8)
@@ -344,14 +364,14 @@ def rgb_to_bgr(img):
     return np.dstack((b, g, r))
 
 
-def read_img(strFileDir, strName, img_shape, blur=True):
+def read_img(strName, img_shape, blur=True):
     '''
     read_img
         Reading image with opencv `cv.imread` with converting bgr to rgb in given `img_shape`
         with float64 dtype
 
     ```python
-    >>img = read_img("../data/", "cat.png", (256,256,3))
+    >>img = read_img(../data/cat.png", (256,256,3))
     >>print(img.shape)
     (256,256,3)
     >>print(img.dtype)
@@ -369,7 +389,7 @@ def read_img(strFileDir, strName, img_shape, blur=True):
     img_shape = (img_shape[0], img_shape[1])
 
     img = cv2.imread(
-        os.path.join(strFileDir, strName), -1
+        strName, -1
     ).astype(np.float64)
 
     resize_img = cv2.resize(img, img_shape)
@@ -383,23 +403,46 @@ def read_img(strFileDir, strName, img_shape, blur=True):
 
 def multi_threads_wrapper(iterable):
     def wrapper(func):
-        @timeit(log_info="Multi-threading process ")
         def inner_wrapper(*args, **kwargs):
             threads = []
-            for arg in iterable:
-                process = Thread(target=func, args=[args, arg])
+            step = 0
+            for index, arg in enumerate(iterable):
+                step = step + index + len(arg)
+                process = Thread(target=func, args=[*args, arg, step])
                 process.start()
                 threads.append(process)
-            for thread in threads:
+            for thread in tqdm(
+                    threads,
+                    total=len(threads),
+                    unit="thread",
+                    leave=False):
                 thread.join()
             return
         return inner_wrapper
     return wrapper
 
 
+def multi_process_wrapper(iterable):
+    def wrapper(func):
+        def inner_wrapper(*args, **kwargs):
+            processes = []
+            step = 0
+            for index, item in enumerate(iterable):
+                step = step + index + len(item)
+                process = Process(target=func, args=[*args, item, step])
+                process.start()
+                print("Starting process.....")
+            for process in processes:
+                process.join()
+            print("Process completed.....")
+            return
+        return inner_wrapper
+    return wrapper
+
 # =======================================================
 # for Pix2Pix_keras uses
 # =======================================================
+
 
 def get_nb_patch(img_dim, patch_size):
     assert img_dim[0] % patch_size[0] == 0, "patch_size does not divide height"
@@ -467,6 +510,17 @@ def extract_patches(X, patch_size):
     return list_X
 
 
+def vectorized_read_img(img_dir, neg_norm=False):
+    func_normal = normalization
+    if neg_norm:
+        func_normal = tanh_normalization
+    return func_normal(
+        read_img(
+            img_dir,
+            (256, 256, 3)
+        ), 255.0, 0.0)
+
+
 def plot_generated_batch(
         X,
         y,
@@ -499,15 +553,15 @@ def plot_generated_batch(
 
     Xr = np.concatenate(list_rows, axis=0)
 
-    if Xr.shape[-1] == 1:
-        plt.imshow(Xr[:, :, 0], cmap="gray")
-    else:
-        plt.imshow(Xr)
-    plt.axis("off")
-    check_folders("../figures/%s" % (model_name) )
-    plt.savefig("../figures/%s/current_batch_%s.png" % (model_name,suffix))
-    plt.clf()
-    plt.close()
+    # if Xr.shape[-1] == 1:
+    #     plt.imshow(Xr[:, :, 0], cmap="gray")
+    # else:
+    #     plt.imshow(Xr)
+    # plt.axis("off")
+    # check_folders("../figures/%s" % (model_name) )
+    # plt.savefig("../figures/%s/current_batch_%s.png" % (model_name,suffix))
+    # plt.clf()
+    # plt.close()
 
 
 def print_text_progress_bar(percentage, **kwargs):
@@ -592,6 +646,7 @@ def click_region_call_bk(event, x, y, flags, param):
             mask_cam1 = np.zeros(param[0].shape, dtype=np.uint8)
             mask_cam1[param[0] == param[0][y, x]] = 255
             param[1].callback(mask_cam1, param[2])
+    return
 
 
 def unproject_pointcloud(ptcloud, camera_params, scaleFactor=1000):
@@ -609,7 +664,7 @@ def unproject_pointcloud(ptcloud, camera_params, scaleFactor=1000):
     return np.array(img_pts)
 
 
-def reproject_ptcloud(index, src, dest, radius=2):
+def reproject_ptcloud(index, src, dest, radius=2, suffix=""):
     img_h, img_w, _ = dest.shape
     start = time()
     debug_dest = dest[:].copy()
@@ -628,21 +683,21 @@ def reproject_ptcloud(index, src, dest, radius=2):
             if radius != 0:
                 for (x, y) in zip(in_radius_xrange, in_radius_yrange):
                     in_xrange, in_yrange = (
-                        x > 0) and (
-                        x < img_w), (y > 0) and (
-                        y < img_h)
+                        x > 0) and (x < img_w),\
+                        (y > 0) and (y < img_h)
                     if in_xrange and in_yrange:
                         # put it into opencv bgr ordering
                         dest[y, x] = np.array([b, g, r])
 
     end = time()
     time_taken = round(end - start, 2)
-    print(
-        "successifully extracted image " +
-        str(index) +
-        " time taken :" +
-        str(time_taken),
-        end="\r")
+    if suffix != "":
+        print(
+            "successifully reprojected ptcloud " +
+            str(index) + " " + suffix +
+            " time taken :" +
+            str(time_taken))
+
     return debug_dest
 
 

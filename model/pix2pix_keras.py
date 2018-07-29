@@ -63,8 +63,8 @@ class K_DCGAN(data_model):
             img_shape_disc, nb_patch, 2, model_name="DCGAN_discriminator")
 
         opt_dcgan, opt_discriminator = Adam(
-            lr=1e-4, beta_1=0.9 , beta_2 = 0.999, epsilon=1e-08),\
-             Adam(lr=1e-4, beta_1=0.9 , beta_2 = 0.999, epsilon=1e-08)
+            lr=1e-4, beta_1=0.9, beta_2=0.999, epsilon=1e-08),\
+            Adam(lr=1e-4, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
 
         self.generator.compile(
             loss="categorical_crossentropy",

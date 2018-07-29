@@ -4,3 +4,7 @@ __pycache__
 mask
 TODO.md
 figures
+data/*/train/*.png
+data/*/target/*.png
+.DS_Store
+images.npy

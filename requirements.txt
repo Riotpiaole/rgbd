@@ -1,3 +1,4 @@
 tflearn
 # tensorflow-gpu==1.4.0
 tensorflow==1.4.0
+tqdm
