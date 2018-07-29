@@ -12,6 +12,7 @@ from utils import (
     timeit,
     read_img,
     check_folders,
+    listfiles_nohidden,
     check,
     vectorized_read_img,
     alphanum_key,
@@ -65,7 +66,7 @@ class data_model(object):
         self.min = 0.0
 
         # total number of images through out all of the directories
-        self.total_imgs = 5214
+        self.total_imgs =  400
 
         self.data = {
             "X": np.array([]),
@@ -74,7 +75,6 @@ class data_model(object):
         func_normal = normalization
         if self.reverse_norm:
             func_normal = tanh_normalization
-
         self.parse_data(validation_size=validation_size)
 
     def parse_data(self, validation_size=.2):
@@ -82,8 +82,9 @@ class data_model(object):
         if self.white_bk:
             suffix = ""
         print("--------------------------------------------------------------------------------")
-        for config in streams_config().to_list:
-            self.load_data(config.strFolderName + suffix)
+        # for config in streams_config().to_list:
+        #     self.load_data(config.strFolderName + suffix)
+        self.load_data("ImgSeq_Po_00_first_test")
         print("--------------------------------------------------------------------------------")
         # 20 % of validation sample
         num_of_sample = math.floor(validation_size * self.total_imgs)
@@ -91,39 +92,39 @@ class data_model(object):
             'X': np.array(self.data['X'][:num_of_sample]),
             'y': np.array(self.data['y'][:num_of_sample])
         }
-
+        
         self.data['X'] = np.array(self.data['X'][num_of_sample:])
         self.data['y'] = np.array(self.data['y'][num_of_sample:])
-
+        
         # size references
         self.num_train, self.num_val = len(
             self.data['X']), len(
             self.validation['X'])
+
         print(
             "Loaded all image sequence total of : %d , %d training_imgs  and %d validation imgs" %
             (self.total_imgs, self.num_train, self.num_val))
 
     def load_data(self, data_set):
-
         data_dir = os.path.join("../data/", data_set)
-
         train_dir, target_dir = os.path.join(data_dir + "/train"), \
             os.path.join(data_dir + "/target")
+        
         # load all of the images
-        train_files = list(map(
-            lambda img_dir: os.path.join(train_dir + "/" + img_dir),
-            sorted(os.listdir(train_dir), key=alphanum_key)
-        )
-        )
-        target_files = list(map(
-            lambda img_dir: os.path.join(train_dir + "/" + img_dir),
-            sorted(os.listdir(target_dir), key=alphanum_key)
-        )
-        )
+        train_files , target_files =sorted(
+                listfiles_nohidden(
+                    train_dir, 
+                    includeInputPath=True,
+                    ext='png'), key=alphanum_key) ,\
+            sorted(
+                listfiles_nohidden(
+                    target_dir,
+                    includeInputPath=True,
+                    ext='png'), key=alphanum_key)
+        
 
         self.data["X"] = np.append(self.data["X"], train_files)
         self.data["y"] = np.append(self.data["X"], target_files)
-
         # log the progress
         print("|Loading image sequence {}| : {}%/100%".format(
             data_set,
@@ -181,7 +182,6 @@ class data_model(object):
             if not validation:
                 idx = np.random.choice(
                     self.num_train, batch_size, replace=False)
-
                 yield self.func(self.data['X'][idx]),\
                     self.func(self.data['y'][idx])
             else:

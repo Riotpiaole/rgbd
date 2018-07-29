@@ -22,11 +22,15 @@ def unzip():
         @multi_threads_wrapper(list(chunks(data, 100)))
         def save_unzip_imgs(*args):
             data, iteration = args
+            
             for frame_num, (X, y) in enumerate(data):
-                train_img = data_dir + \
-                    "/train/train%s.png" % str(iteration + frame_num)
-                label = data_dir + \
-                    "/target/target%s.png" % str(iteration + frame_num)
-                cv2.imwrite(train_img, X)
-                cv2.imwrite(label, y)
+                pass
+            #     train_img = data_dir + \
+            #         "/train/train%s.png" % str(iteration + frame_num)
+            #     label = data_dir + \
+            #         "/target/target%s.png" % str(iteration + frame_num)
+            #     cv2.imwrite(train_img, X)
+            #     cv2.imwrite(label, y)
         save_unzip_imgs()
+    
+unzip()

@@ -8,3 +8,4 @@ data/*/train/*.png
 data/*/target/*.png
 .DS_Store
 images.npy
+data

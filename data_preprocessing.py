@@ -126,7 +126,6 @@ class DataPreprocessor():
         self.datasets_bk = []
 
         self.num_cam = num_cam
-        self.load_data()
 
     # actual filtering
     @timeit(log_info="Obtain all the traning data ")
@@ -236,16 +235,6 @@ class DataPreprocessor():
             self.datasets_bk.append((train, label))
         else:
             self.datasets.append((train, label))
-
-        save_target_file_name = os.path.join(
-            save_target_folder_path,
-            "label{}.png".format(index))
-        save_train_file_name = os.path.join(
-            save_train_folder_path,
-            "train{}.png".format(index))
-
-        cv2.imwrite(save_target_file_name, label)
-        cv2.imwrite(save_train_file_name, train)
 
     def get_rgbd(self, cam, frame_num):
         img_depth = cv2.imread(
@@ -495,13 +484,14 @@ class DataPreprocessor():
 
     def unzip_npy_to_imgs(self):
         print("========================================================================================================")
-        print("unpack all images to directory %s" % self.config.FolderName)
+        print("unpack all images to directory %s" % self.config.strFolderName)
         self.unzip(self.config.strFolderName)
         self.unzip(self.config.strFolderNameBlack)
         print("========================================================================================================")
 
 
 if __name__ == "__main__":
-    config = config("test01")
+    config = config("ImgSeq_Po_00_first_test")
     demo = DataPreprocessor(config, debug_mode=False)
+    demo.unzip_npy_to_imgs()
     # demo.make_dataset()

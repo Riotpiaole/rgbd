@@ -56,7 +56,7 @@ class DeepConvAutoEncoder(data_model):
         self.loss = self.get_loss(loss)
         self.build(self.img_shape)
         self.n_batch_per_epoch = 10
-        check_folders(self.weight_path)
+        print(self.weight_path)
 
     @staticmethod
     def get_loss(loss):
@@ -102,7 +102,7 @@ class DeepConvAutoEncoder(data_model):
             f.write("\n")
             f.write("Losses: {}".format(loss))
 
-    @training_wrapper
+    # @training_wrapper
     @timeit(log_info="Training deconv_autoEncoder")
     def train(self, retrain=False):
         n_batch_per_epoch = self.n_batch_per_epoch
@@ -117,11 +117,11 @@ class DeepConvAutoEncoder(data_model):
                 print("No previous model found retraining a new one")
         for e in range(self.nb_epochs):
             batch_counter = 1
-            start = time()
+            # start = time()
             progbar = generic_utils.Progbar(total_epoch)
 
             for X, y in self.gen_batch(self.batch_size):
-                gen_loss = self.model.train_on_batch(X, y)
+                # gen_loss = self.model.train_on_batch(X, y)
                 batch_counter += 1
                 progbar.add(self.batch_size, values=[
                     ("G loss ", gen_loss)])
@@ -154,6 +154,7 @@ class DeepConvAutoEncoder(data_model):
             t_time = time() - start
             print('Epoch %s/%s, Time: %s ms' %
                   (e + 1, self.nb_epochs, round(t_time, 2)), end="\r")
+            
             if e % 5 == 0:
                 self.save()
                 self.log_checkpoint(e, batch_counter, [
@@ -161,7 +162,7 @@ class DeepConvAutoEncoder(data_model):
 
 
 if __name__ == "__main__":
-    model = DeepConvAutoEncoder()
+    model = DeepConvAutoEncoder(epoch=100)
     model.model.summary()
     model.train(retrain=False)
-    model.test_img()
+    # model.test_img()
