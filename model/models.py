@@ -78,7 +78,6 @@ def generator_unet_upsampling(
     generator_unet = Model(inputs=[unet_input], outputs=[x])
     return generator_unet
 
-
 def generator_unet_deconv(
         img_dim,
         bn_mode,
@@ -151,7 +150,6 @@ def generator_unet_deconv(
     generator_unet = Model(inputs=[unet_input], outputs=[x])
 
     return generator_unet
-
 
 def DCGAN_discriminator(
         img_dim,
@@ -239,7 +237,6 @@ def DCGAN_discriminator(
         name=model_name)
     return discriminator_model
 
-
 def DCGAN(
         generator,
         discriminator_model,
@@ -280,3 +277,4 @@ def DCGAN(
                   name="DCGAN")
 
     return DCGAN
+

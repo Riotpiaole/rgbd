@@ -1,4 +1,5 @@
-
+from model.auto_encoder import DeepConvAutoEncoder
+from model.pix2pix_keras import K_DCGAN
 
 def load_model(
     model_name,

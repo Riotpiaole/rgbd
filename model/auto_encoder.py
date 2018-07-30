@@ -26,10 +26,7 @@ class DeepConvAutoEncoder(data_model):
     def __init__(
             self,
             epoch=100000,
-            img_shape=[
-                256,
-                256,
-                3],
+            img_shape=[256,256,3],
             learning_rate=1.e-5,
             white_bk=True,
             batch_size=20,
@@ -43,10 +40,10 @@ class DeepConvAutoEncoder(data_model):
         super().__init__(
             name +
             "_%s_lr_%s_imgdim%s_loss_%s" %
-            (bk,
-             learning_rate,
-             img_shape[0],
-             loss),
+                (bk,
+                learning_rate,
+                img_shape[0],
+                loss),
             "generator",
             epochs=epoch,
             batch_size=batch_size,

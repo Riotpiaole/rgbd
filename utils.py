@@ -20,7 +20,7 @@ import re
 import cv2
 import sys
 
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 
 def break_point():
@@ -584,15 +584,15 @@ def plot_generated_batch(
 
     Xr = np.concatenate(list_rows, axis=0)
 
-    # if Xr.shape[-1] == 1:
-    #     plt.imshow(Xr[:, :, 0], cmap="gray")
-    # else:
-    #     plt.imshow(Xr)
-    # plt.axis("off")
-    # check_folders("../figures/%s" % (model_name) )
-    # plt.savefig("../figures/%s/current_batch_%s.png" % (model_name,suffix))
-    # plt.clf()
-    # plt.close()
+    if Xr.shape[-1] == 1:
+        plt.imshow(Xr[:, :, 0], cmap="gray")
+    else:
+        plt.imshow(Xr)
+    plt.axis("off")
+    check_folders("../figures/%s" % (model_name) )
+    plt.savefig("../figures/%s/current_batch_%s.png" % (model_name,suffix))
+    plt.clf()
+    plt.close()
 
 
 def print_text_progress_bar(percentage, **kwargs):
