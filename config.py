@@ -1,4 +1,5 @@
 import os
+import numpy as np
 from utils import multi_threads_wrapper
 # Folder of all the images Non changing data
 strVideoFolder = "/Users/rockliang/Documents/Research/VISION/RGBD/unity-multiview/data"
@@ -72,10 +73,16 @@ class config(object):
         self.cam2_calib = calibs[self.strFolderName]["cam2_calib"]
         self.cam3_calib = calibs[self.strFolderName]["cam3_calib"]
 
-        self.num_images = len(
-            os.listdir(
-                self.strVideoFullPath +
-                "/cam01/color"))
+        if os.path.exists( self.strVideoFullPath ):
+            self.num_images = len(
+                os.listdir(
+                    self.strVideoFullPath +
+                    "/cam01/color"))
+        elif os.path.isfile( "../data/%s/images.npy" % self.strFolderName ):
+            self.num_images = np.load(
+                    "../data/%s/images.npy" % (
+                        self.strFolderName )
+                ).shape[0]
 
     @property
     def filter_param(self):
@@ -99,8 +106,11 @@ class config(object):
 class streams_config(object):
     def __init__(self):
         self.all_datasets = {}
+        self.total_imgs = 0 
         for folder in calibs.keys():
-            self.all_datasets[folder] = config(folder)
+            temp = config(folder)
+            self.total_imgs += temp.num_images
+            self.all_datasets[folder] = temp
 
     def process(self, name):
         return self.all_datasets[name]

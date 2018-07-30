@@ -9,6 +9,7 @@ sys.path.insert(0, "..")
 
 import h5py
 from utils import (
+    showImageSet,
     timeit,
     read_img,
     check_folders,
@@ -52,6 +53,7 @@ class data_model(object):
         self.model_name = model_name
         self.batch_size = batch_size
         self.reverse_norm = reverse_norm
+        self.configs = streams_config()
         self.nb_epochs = epochs
         self.img_shape = img_shape
         self.func = lambda x: np.array(list(map(vectorized_read_img, x)))
@@ -66,26 +68,25 @@ class data_model(object):
         self.min = 0.0
 
         # total number of images through out all of the directories
-        self.total_imgs =  400
+        self.total_imgs = self.configs.total_imgs 
 
         self.data = {
             "X": np.array([]),
             "y": np.array([])
         }
-        func_normal = normalization
-        if self.reverse_norm:
-            func_normal = tanh_normalization
+        
         self.parse_data(validation_size=validation_size)
 
     def parse_data(self, validation_size=.2):
         suffix = "black"
         if self.white_bk:
             suffix = ""
+        
         print("--------------------------------------------------------------------------------")
-        # for config in streams_config().to_list:
-        #     self.load_data(config.strFolderName + suffix)
-        self.load_data("ImgSeq_Po_00_first_test")
+        for config in  self.configs:
+            self.load_data(config.strFolderName + suffix)
         print("--------------------------------------------------------------------------------")
+
         # 20 % of validation sample
         num_of_sample = math.floor(validation_size * self.total_imgs)
         self.validation = {
@@ -124,7 +125,7 @@ class data_model(object):
         
 
         self.data["X"] = np.append(self.data["X"], train_files)
-        self.data["y"] = np.append(self.data["X"], target_files)
+        self.data["y"] = np.append(self.data["y"], target_files)
         # log the progress
         print("|Loading image sequence {}| : {}%/100%".format(
             data_set,
@@ -240,13 +241,13 @@ class data_model(object):
 
         result = np.hstack((X, y, X_pred))
 
-        # check_folders("../figures/%s" % (self.title))
-        # plt.imshow(result)
-        # plt.axis("off")
-        # plt.show()
-        # plt.savefig(
-        #     "../figures/%s/current_batch_%s.png" %
-        #     (self.title, suffix))
+        check_folders("../figures/%s" % (self.title))
+        plt.imshow(result)
+        plt.axis("off")
+        plt.show()
+        plt.savefig(
+            "../figures/%s/current_batch_%s.png" %
+            (self.title, suffix))
 
 
 if __name__ == "__main__":

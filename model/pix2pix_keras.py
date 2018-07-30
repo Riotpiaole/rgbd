@@ -28,10 +28,32 @@ def l1_loss(y_true, y_pred):
 
 
 class K_DCGAN(data_model):
-    def __init__(self, flag="deconv", epoch=100000, img_shape=[256, 256, 3]):
+    def __init__(self, 
+                flag="deconv", 
+                epoch=100000, 
+                img_shape=[256, 256, 3],
+                learning_rate=1e-3,
+                white_bk=True,
+                name="gan_unet_model",
+                loss=[
+                    'categorical_crossentropy', # generator
+                    l1_loss ,                   # K_dcgan
+                    'binary_crossentropy'       #dis criminator
+                    ]):
+        self.loss = loss 
+
+        bk = "bk"
+        if white_bk:
+            bk = "wh"
+
         data_model.__init__(
             self,
-            "K_DCGAN_dim_256_lr_1e-4",
+            name+"_%s_lr_%s_img_dim%s_loss_%s" % ( 
+                bk,
+                img_shape[0] ,  
+                learning_rate , 
+                white_bk,
+                loss),
             "DCGAN",
             img_shape=img_shape,
             epochs=epoch)
@@ -50,6 +72,7 @@ class K_DCGAN(data_model):
         check_folders(self.weight_path)
 
     def build(self, img_shape):
+        generator_loss , dc_gan_loss , discriminator_loss = self.loss
         self.generator = generator_unet_deconv(
             img_shape,
             2,
