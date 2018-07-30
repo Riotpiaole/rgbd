@@ -118,7 +118,7 @@ class DeepConvAutoEncoder(data_model):
             progbar = generic_utils.Progbar(total_epoch)
 
             for X, y in self.gen_batch(self.batch_size):
-                # gen_loss = self.model.train_on_batch(X, y)
+                gen_loss = self.model.train_on_batch(X, y)
                 batch_counter += 1
                 progbar.add(self.batch_size, values=[
                     ("G loss ", gen_loss)])
@@ -159,7 +159,7 @@ class DeepConvAutoEncoder(data_model):
 
 
 if __name__ == "__main__":
-    model = DeepConvAutoEncoder(epoch=100)
+    model = DeepConvAutoEncoder(epoch=100000)
     model.model.summary()
-    model.train(retrain=False)
+    model.train(retrain=True)
     # model.test_img()

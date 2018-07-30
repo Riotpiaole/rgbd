@@ -83,7 +83,7 @@ class data_model(object):
             suffix = ""
         
         print("--------------------------------------------------------------------------------")
-        for config in  self.configs:
+        for config in  self.configs.to_list:
             self.load_data(config.strFolderName + suffix)
         print("--------------------------------------------------------------------------------")
 
