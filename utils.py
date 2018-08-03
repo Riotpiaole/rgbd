@@ -44,6 +44,12 @@ def image_crop(mask):
     '''Take a mask and crop into the most reasonable region'''
     pass
 
+def pil_to_cv2Img(image):
+    # convert to np array 
+    img_array = np.array(image.convert('RGB')) 
+    cv_img = img_array[: , : , ::-1].copy()
+    return cv_img
+
 
 def alphanum_key(s):
     '''
@@ -170,11 +176,11 @@ def check(arr):
     '''check the given array whether or not is existing value but 0'''
     print(
         "checking ",
-        np.mean(arr),
-        np.max(arr),
-        np.min(arr),
-        arr.dtype,
-        arr.shape)
+        "mean: " ,np.mean(arr),
+        "max: ",np.max(arr),
+        "min: ",np.min(arr),
+        "dtype: ",arr.dtype,
+        "shape: ",arr.shape)
 
 
 from time import time
@@ -222,39 +228,37 @@ def timeit(log_info=None, flag=False):
     return wrapper
 
 
-def create_folder(indx, folder_path, verbose=False):
+def create_folder(indx, folder_path, verbose=False,save=False):
     '''Recursive function take number of / tag and created the folders if not found ...'''
+    
     strRecurPath = "/".join(folder_path[:indx])
-    if indx == 2:  # reach ../sth
+    if indx == 1:  # reach ../sth
         if not os.path.exists(strRecurPath):
             if verbose:
                 print(
                     "Folder {} not found, Create the folder {}.".format(
                         strRecurPath, strRecurPath))
-            os.mkdir(strRecurPath)
-            pass
+            if save: os.mkdir(strRecurPath)
         else:
             if verbose:
-                print("Folder {} found Skipping.".format(strRecurPath))
-            pass
+                print("Folder {} found Skipping.".format(strRecurPath)) 
         return
+    create_folder(indx-1 ,  folder_path )
+    if not os.path.exists(strRecurPath):
+        if verbose:
+            print(
+                "Folder {} not found, Create the folder {}.".format(
+                    strRecurPath, strRecurPath))
+        if save: os.mkdir(strRecurPath)
     else:
-        if not os.path.exists(strRecurPath):
-            create_folder(indx - 1, folder_path)
-            if verbose:
-                print(
-                    "Folder {} not found, Creating the folder {}.".format(
-                        strRecurPath, strRecurPath))
-            os.mkdir(strRecurPath)
-            pass
-        else:
-            if verbose:
-                print("Folder {} found Skipping check folder.".format(strRecurPath))
-            pass
-        return
+        if verbose:
+            print("Folder {} found Skipping.".format(strRecurPath)) 
+    return
 
+    
+       
 
-def check_folders(folder_paths):
+def check_folders(folder_paths,verbose=False,save=True):
     '''check_folders
     Checking the Given Path existence if not create the folder
     Arguments:
@@ -275,7 +279,11 @@ def check_folders(folder_paths):
     Folder model found Skipping.
     ```
     '''
-    create_folder(len(folder_paths.split("/")), folder_paths.split("/"))
+    
+    path_split = folder_paths.split("/")
+    path_split.remove("") # avoid last char end with /
+    size = len(path_split)
+    create_folder(size , path_split ,verbose=verbose,save=save)
 
 
 def training_wrapper(func):
@@ -321,22 +329,22 @@ def training_wrapper(func):
     return innerwrapper
 
 
-def normalization(arr, arr_max, arr_min):  # normalized between 0 and 1
+def normalization(arr, arr_max=255, arr_min=0):  # normalized between 0 and 1
     result = (arr - arr_min) / (arr_max - arr_min)
     return result.astype(np.float64)
 
 
-def inverse_normalization(arr, arr_max, arr_min):
+def inverse_normalization(arr, arr_max=255, arr_min=0):
     result = (arr_max - arr_min) * (arr) + arr_min
     return result.astype(np.uint8)
 
 
-def tanh_normalization(arr, arr_max, arr_min):  # normalized between 0 and 1
+def tanh_normalization(arr, arr_max=255, arr_min=0):  # normalized between 0 and 1
     result = (2 * (arr - arr_min) / (arr_max - arr_min)) - 1
     return result.astype(np.float64)
 
 
-def tanh_inverse_normalization(arr, arr_max, arr_min):
+def tanh_inverse_normalization(arr, arr_max=255, arr_min=0):
     result = (1 / 2 * (arr + 1)) * (arr_max - arr_min) + arr_min
     return result.astype(np.uint8)
 
@@ -469,6 +477,9 @@ def multi_process_wrapper(iterable):
             return
         return inner_wrapper
     return wrapper
+
+
+
 
 # =======================================================
 # for Pix2Pix_keras uses
@@ -629,6 +640,8 @@ def print_text_progress_bar(percentage, **kwargs):
         debug_msg,
         end='')
 
+
+
 # ==============================
 #  data_preprocessing utils
 # ==============================
@@ -776,7 +789,6 @@ def scatter_point_filtering(img, close=(4, 4),
         img = cv2.morphologyEx(img, cv2.MORPH_GRADIENT, ksize)
         img[img > grad] = 0  # remove some scatter points
     return img
-
 
 def black_bg(img_reproj, img_clr, mask_front, mask_bk):
     img_reproj[mask_bk == 0] = 0

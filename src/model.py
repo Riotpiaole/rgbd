@@ -2,14 +2,19 @@ import os
 import cv2
 import sys
 import math
+from tqdm import tqdm
 import numpy as np
 import random as rnd
 
 sys.path.insert(0, "..")
 
 import h5py
+import matplotlib.pyplot as plt
 from utils import (
+    pil_to_cv2Img,
+    rgb_to_bgr,
     showImageSet,
+    showImage,
     timeit,
     read_img,
     check_folders,
@@ -56,11 +61,15 @@ class data_model(object):
         self.configs = streams_config()
         self.nb_epochs = epochs
         self.img_shape = img_shape
-        self.func = lambda x: np.array(list(map(vectorized_read_img, x)))
+        
+        self.read_list_of_imgs = lambda x: np.array(list(map(vectorized_read_img, x)))
         self.weight_path = "../log/" + self.title + "/"
+        check_folders(self.weight_path)
+        
         self.trained_weight_path = os.path.join(
             self.weight_path, "%s.h5" %
             self.model_name)
+        print(white_bk)
         self.white_bk = white_bk
 
         # image with max and min with rgb as 0 to 255
@@ -75,9 +84,9 @@ class data_model(object):
             "y": np.array([])
         }
         
-        self.parse_data(validation_size=validation_size)
+        self.load_datas(validation_size=validation_size)
 
-    def parse_data(self, validation_size=.2):
+    def load_datas(self, validation_size=.2):
         suffix = "black"
         if self.white_bk:
             suffix = ""
@@ -135,10 +144,6 @@ class data_model(object):
         )
         )
 
-    @timeit(log_info="Loading Multiple data from dirs")
-    def load_datas(self, configs):
-        pass
-
     def get_data(self, index):
         return self.data['X'][index], self.data['y'][index]
 
@@ -183,13 +188,15 @@ class data_model(object):
             if not validation:
                 idx = np.random.choice(
                     self.num_train, batch_size, replace=False)
-                yield self.func(self.data['X'][idx]),\
-                    self.func(self.data['y'][idx])
+                yield self.read_list_of_imgs(self.data['X'][idx]),\
+                    self.read_list_of_imgs(self.data['y'][idx])
             else:
                 idx = np.random.choice(
                     self.num_val, batch_size, replace=False)
-                yield self.func(self.validation['X'][idx]),\
-                    self.func(self.validation['y'][idx])
+                yield self.read_list_of_imgs(self.validation['X'][idx]),\
+                    self.read_list_of_imgs(self.validation['y'][idx])
+    
+
 
     def build(self):
         '''Build the model for the network '''
@@ -209,6 +216,7 @@ class data_model(object):
         self.model.save_weights(self.trained_weight_path)
 
     def test_img(self):
+        '''Test the progress of the model during training '''
         # pick a random index
         idx = rnd.choice([i for i in range(0, len(self.data['X']))])
 
@@ -248,6 +256,76 @@ class data_model(object):
         plt.savefig(
             "../figures/%s/current_batch_%s.png" %
             (self.title, suffix))
+
+    def predict(self, X , y , func=None, meshed=True):
+        '''Predict the result and create a meshed image and return '''
+        rever_norm = inverse_normalization
+        if self.reverse_norm:
+            rever_norm = tanh_inverse_normalization
+        
+        if func: result = func(self , X )
+        
+        result = self.model.predict(X)
+        result = image.array_to_img(rever_norm(result)[0])
+        result = pil_to_cv2Img( result )
+
+        X , y = rever_norm(X).astype(np.uint8)[0] , rever_norm(y).astype(np.uint8)[0]
+        X , y = rgb_to_bgr(X) , rgb_to_bgr(y)
+
+        if meshed:
+            meshed = np.hstack((X,y, result ))
+            return [meshed] , [ "Input::Label::Prediction"]
+
+        return [X , y , result] , [ 'Input' , 'SupposeOutput' , 'predictedResult ']
+        
+    def demo(self,dataset_name , save=False, show=False):
+        ''' Demoing the result of prediction in Input,GroundTruth,Prediction'''
+        if not ( save or show ): raise ValueError("You are not doing anything")
+        config = self.configs.process(dataset_name)
+        suffix = "black"
+        if self.white_bk: # check the background color images
+            suffix = ""
+
+        if save: 
+            video_name = os.path.join(self.weight_path,dataset_name+".avi")
+            print("Saving the video to ",video_name)
+            video = cv2.VideoWriter(video_name, -1 , 1 , (256 ,256))
+
+        data_dir = os.path.join("../data/", config.strFolderName + suffix)
+        train_dir, target_dir = os.path.join(data_dir + "/train"), \
+            os.path.join(data_dir + "/target")
+        
+        # load all of the images
+        train_files , target_files =sorted(
+                listfiles_nohidden(
+                    train_dir, 
+                    includeInputPath=True,
+                    ext='png'), key=alphanum_key) ,\
+            sorted(
+                listfiles_nohidden(
+                    target_dir,
+                    includeInputPath=True,
+                    ext='png'), key=alphanum_key)
+
+        for train , target in tqdm(
+            zip(train_files , target_files),
+                    total=len(train_files),
+                    unit="image",
+                    leave=False):
+            X , y = vectorized_read_img(train) , vectorized_read_img(target) 
+            # the images must be in (1 , 256, 256 ,3)
+            img , names = self.predict(
+                np.array([X]),
+                np.array([y]))
+            if save: video.write(img[0])
+            if show: showImageSet(img , names)
+        
+        cv2.destroyAllWindows()
+        video.release()
+        if save: video.release()
+            
+
+            
 
 
 if __name__ == "__main__":

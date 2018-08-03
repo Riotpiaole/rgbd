@@ -1,5 +1,5 @@
-from model.auto_encoder import DeepConvAutoEncoder , l1_loss
-from model.pix2pix_keras import K_DCGAN
+from src.auto_encoder import DeepConvAutoEncoder , l1_loss
+from src.pix2pix_keras import K_DCGAN
 
 def load_model(
     model_name,
@@ -17,7 +17,7 @@ def load_model(
             batch_size=batch_size,
             loss=loss)
         return model
-    if model_name == "GAN":
+    if model_name == "KDCGAN":
         assert isinstance(loss , list ) or isinstance(loss , tuple)
         model = K_DCGAN(
             epoch=epochs,
@@ -29,3 +29,7 @@ def load_model(
 
 def train(*args):
     pass
+
+
+if __name__ == "__main__":
+    model = load_model("auto_encoder",100, batch_size=20)

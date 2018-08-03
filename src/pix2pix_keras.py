@@ -9,7 +9,7 @@ import h5py
 import math
 import numpy as np
 import tensorflow as tf
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 # keras module
 import keras.backend as K
@@ -19,7 +19,7 @@ from keras.preprocessing import image
 
 # internal module
 from model import data_model, inverse_normalization
-from models import generator_unet_deconv, DCGAN_discriminator, DCGAN
+from models import load_model , DCGAN
 from utils import timeit, check_folders, plot_generated_batch, get_nb_patch
 
 
@@ -41,6 +41,10 @@ class K_DCGAN(data_model):
                     'binary_crossentropy'       #dis criminator
                     ]):
         self.loss = loss 
+        assert (flag == "deconv") or (flag == "upsampling") , "Only support flag for deconv or upsampling"
+        self.flag = flag
+        
+        self.img_dim = img_shape
 
         bk = "bk"
         if white_bk:
@@ -48,21 +52,25 @@ class K_DCGAN(data_model):
 
         data_model.__init__(
             self,
-            name+"_%s_lr_%s_img_dim%s_loss_%s" % ( 
+            name+"bk%s_lr_%s_img_dim%s_loss_%s" % ( 
                 bk,
-                img_shape[0] ,  
                 learning_rate , 
-                white_bk,
+                img_shape[0] ,   
                 loss),
             "DCGAN",
             img_shape=img_shape,
             epochs=epoch)
+        assert len(loss) == 3
         # training params
         self.patch_size = [64, 64]
         self.n_batch_per_epoch = self.batch_size * 100
+        self.learning_rate = learning_rate 
+        
+        self.losses=loss
+
 
         # init all need dir and model
-        self.build(self.img_shape)
+        self.build()
         self.disc_weights_path = os.path.join(
             self.weight_path, "disc_weight_epoch.h5")
         self.gen_weights_path = os.path.join(
@@ -71,37 +79,44 @@ class K_DCGAN(data_model):
             self.weight_path, "DCGAN_weight_epoch.h5")
         check_folders(self.weight_path)
 
-    def build(self, img_shape):
-        generator_loss , dc_gan_loss , discriminator_loss = self.loss
-        self.generator = generator_unet_deconv(
-            img_shape,
-            2,
-            self.batch_size,
-            model_name="generator_unet_deconv",
-            activation=None)
+    def build(self):
+        generator_loss , dc_gan_loss , discriminator_loss = self.losses
+        self.generator = load_model(
+            "generator_unet_%s" % (self.flag),
+            self.img_dim,
+            64,
+            True,
+            True,
+            self.batch_size
+        )
 
-        nb_patch, img_shape_disc = get_nb_patch(img_shape, self.patch_size)
+        nb_patch, img_shape_disc = get_nb_patch(self.img_dim, self.patch_size)
 
-        self.discriminator = DCGAN_discriminator(
-            img_shape_disc, nb_patch, 2, model_name="DCGAN_discriminator")
+        self.discriminator = load_model(
+            "DCGAN_discriminator",
+            self.img_dim,
+            nb_patch,
+            -1,
+            True,
+            self.batch_size)
 
         opt_dcgan, opt_discriminator = Adam(
-            lr=1e-4, beta_1=0.9, beta_2=0.999, epsilon=1e-08),\
-            Adam(lr=1e-4, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
+            lr=self.learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08),\
+            Adam(lr=self.learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
 
         self.generator.compile(
-            loss="categorical_crossentropy",
+            loss=generator_loss,
             optimizer=opt_discriminator)
         self.discriminator.trainable = False
 
         self.DCGAN_model = DCGAN(
             self.generator,
             self.discriminator,
-            img_shape,
+            self.img_dim,
             self.patch_size,
             "channels_last")
 
-        loss = [l1_loss, 'binary_crossentropy']
+        loss = [dc_gan_loss, discriminator_loss]
         loss_weight = [1E1, 1]
 
         self.DCGAN_model.compile(
@@ -111,13 +126,13 @@ class K_DCGAN(data_model):
 
         self.discriminator.trainable = True
         self.discriminator.compile(
-            loss="binary_crossentropy",
+            loss= discriminator_loss,
             optimizer=opt_discriminator)
 
     def log_checkpoint(self, epoch, batch, loss):
         log_path = os.path.join(self.weight_path, "checkpoint")
 
-        prev_epochs, prev_batch_size = 0, 0
+        prev_epochs = 0
         if os.path.isfile(log_path):
             with open(log_path, "w+") as f:
                 line = f.readline()
@@ -160,13 +175,13 @@ class K_DCGAN(data_model):
 
         result = np.hstack((X, y, X_pred))
 
-        check_folders("../figures/%s" % (self.title))
-        plt.imshow(result)
-        plt.savefig(
-            "../figures/%s/current_batch_%s.png" %
-            (self.title, suffix))
-        plt.axis("off")
-        plt.show()
+        # check_folders("../figures/%s" % (self.title))
+        # plt.imshow(result)
+        # plt.savefig(
+        #     "../figures/%s/current_batch_%s.png" %
+        #     (self.title, suffix))
+        # plt.axis("off")
+        # plt.show()
 
     def load(self):
         '''Load models weight from log/${model_name}'''
@@ -286,4 +301,4 @@ class K_DCGAN(data_model):
 if __name__ == "__main__":
     model = K_DCGAN()
     # model.train(retrain=True)
-    model.test_img()
+    # model.test_img()

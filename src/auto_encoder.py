@@ -6,10 +6,10 @@ from keras.optimizers import Adam
 from keras.utils import generic_utils
 from keras.preprocessing import image
 import keras.backend as K
-sys.path.append("../")
 
 from model import data_model, inverse_normalization
 from models import generator_unet_deconv
+
 from utils import (
     timeit,
     check_folders,
@@ -47,13 +47,12 @@ class DeepConvAutoEncoder(data_model):
             "generator",
             epochs=epoch,
             batch_size=batch_size,
-            white_bk=True)
+            white_bk=white_bk)
 
         self.learning_rate = learning_rate
         self.loss = self.get_loss(loss)
         self.build(self.img_shape)
         self.n_batch_per_epoch = 10
-        print(self.weight_path)
 
     @staticmethod
     def get_loss(loss):
