@@ -10,5 +10,5 @@ if __name__  == "__main__":
         loss="l1",
         white_bk=False )
     model.load()
-    model.demo("ImgSeq_Po_00_first_test",save=True)
+    model.demo("ImgSeq_Po_01",save=True)
     

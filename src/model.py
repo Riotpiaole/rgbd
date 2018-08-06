@@ -270,7 +270,7 @@ class data_model(object):
         result = pil_to_cv2Img( result )
 
         X , y = rever_norm(X).astype(np.uint8)[0] , rever_norm(y).astype(np.uint8)[0]
-        X , y = rgb_to_bgr(X) , rgb_to_bgr(y)
+        X , y = rgb_to_bgr(X) , rgb_to_bgr(y) 
 
         if meshed:
             meshed = np.hstack((X,y, result ))
@@ -289,8 +289,9 @@ class data_model(object):
         if save: 
             video_name = os.path.join(self.weight_path,dataset_name+".avi")
             print("Saving the video to ",video_name)
-            video = cv2.VideoWriter(video_name, -1 , 1 , (256 ,256))
-
+            fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+            video = cv2.VideoWriter(video_name , fourcc , 60 ,(768 ,256), True)
+ 
         data_dir = os.path.join("../data/", config.strFolderName + suffix)
         train_dir, target_dir = os.path.join(data_dir + "/train"), \
             os.path.join(data_dir + "/target")
@@ -317,15 +318,11 @@ class data_model(object):
             img , names = self.predict(
                 np.array([X]),
                 np.array([y]))
+            # output is (256 , 768, 3)
             if save: video.write(img[0])
             if show: showImageSet(img , names)
         
-        cv2.destroyAllWindows()
-        video.release()
         if save: video.release()
-            
-
-            
 
 
 if __name__ == "__main__":

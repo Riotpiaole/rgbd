@@ -15,6 +15,7 @@ from numpy.linalg import inv
 import h5py
 # Must have function for image filtering
 from utils import (
+    showImage,
     transform_pointcloud_vectorized,
     multi_process_wrapper,
     scatter_point_filtering,
@@ -124,6 +125,8 @@ class DataPreprocessor():
 
         self.datasets = []
         self.datasets_bk = []
+        
+        self.front_back_depth_map = []
 
         self.num_cam = num_cam
 
@@ -155,9 +158,16 @@ class DataPreprocessor():
             img_reproj = np.zeros(
                 image_cam1_color.shape,
                 image_cam1_color.dtype)
+            
             mask_reproj = np.zeros(
                 image_cam1_color.shape,
                 image_cam1_color.dtype)
+            
+            depth_reproj = np.zeros( 
+                image_cam1_color.shape,
+                image_cam1_depth.dtype
+            )
+
 
             repoj_args = [
                 frame_num,
@@ -171,19 +181,36 @@ class DataPreprocessor():
                 False,
                 self.config.radius,
                 "%s img_reproj_reproj" % self.config.strFolderName]
-
+            
+            #  seting up params for reprojecting the mask
             mask_args = repoj_args.copy()
             mask_args[3] = mask_reproj
             mask_args[4] = mask2
             mask_args[5] = mask3
             mask_args[10] = "%s mask_reproj" % self.config.strFolderName
+            
+            depth_args = repoj_args.copy()
+            depth_args[3] = depth_reproj
+            depth_args[4] = np.dstack((
+                image_cam2_depth,
+                image_cam2_depth,
+                image_cam2_depth
+            ))
+
+            depth_args[5] = np.dstack((
+                image_cam3_depth,
+                image_cam3_depth,
+                image_cam3_depth,
+            ))
+            depth_args[10] = "%s depth_reproj" % self.config.strFolderName
 
             if debug:
                 two_camera_reprojection(*repoj_args)
                 two_camera_reprojection(*mask_args)
+                two_camera_reprojection(*depth_args)
             else:
                 threads = []
-                for arg in [repoj_args, mask_args]:
+                for arg in [repoj_args, mask_args , depth_args]:
                     process = Thread(
                         target=two_camera_reprojection, args=[
                             *arg])
@@ -200,6 +227,13 @@ class DataPreprocessor():
             img_reproj_wh, img_cam1_color_wh = white_bg(
                 img_reproj[:].copy(), image_cam1_color[:].copy(),
                 mask1, mask_reproj)
+            
+            depth_reproj[ mask_reproj == 0 ] = 0
+            depth_reproj = np.dsplit(depth_reproj,3)[0]
+            depth_reproj = depth_reproj.reshape ( (240,320))
+            self.front_back_depth_map.append(
+                (image_cam1_depth , depth_reproj)
+            )
 
             if debug:
                 showImageSet([img_reproj_bk, img_cam1_color_bk, img_reproj_wh, img_cam1_color_wh],
@@ -208,7 +242,7 @@ class DataPreprocessor():
             #  folders to be saved on
             save_path = self.config.strFilterFullPath
             save_path_bk = self.config.strFilterFullPathBlack
-            check_folders(save_path_bk)
+            # check_folders(save_path_bk)
 
             if save:
                 self.save(
@@ -436,6 +470,7 @@ class DataPreprocessor():
         cv2.imwrite(path, self.current_mask[cam])
 
     def demo(self):
+        '''extract the images background and front with opencv'''
         self.get_backward_frame(save=False, debug=True)
 
     def unzip(self, folder):
@@ -460,10 +495,10 @@ class DataPreprocessor():
         else:
             print("Pre-ziped image was not found ina%s" % data_dir)
 
-    def make_dataset(self, npy=False):
+    def make_dataset(self, npy=False , depth=False):
         if os.path.isfile("./data/%s" % self.config.strFolderName):
             self.get_backward_frame(save=True, debug=False)
-
+        self.get_backward_frame(save=False, debug=False)
         if npy:
             np.save(
                 "./data/%s/images.npy" %
@@ -473,6 +508,14 @@ class DataPreprocessor():
                 "./data/%s/images_bk.npy" %
                 self.config.strFolderNameBlack,
                 self.datasets_bk)
+        
+        if depth:
+            print("Saving %s depth map with reprojected and masked" % self.config.strVideoFolder)
+            np.save( 
+                "./data/%s/front_back_depth.npy" %
+                self.config.strFolderName, 
+                self.front_back_depth_map
+            )   
 
         print("========================================================================================================")
         print("Saving all training images in %s | with totoal %d images |" % (
@@ -491,7 +534,9 @@ class DataPreprocessor():
 
 
 if __name__ == "__main__":
-    config = config("ImgSeq_Po_00_first_test")
+    config = config("ImgSeq_Po_01")
     demo = DataPreprocessor(config, debug_mode=False)
-    demo.unzip_npy_to_imgs()
+    demo.load_rgbd_imgs()
+    demo.load_data()
+    demo.make_dataset(depth=True)
     # demo.make_dataset()

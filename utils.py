@@ -717,6 +717,7 @@ def reproject_ptcloud(index, src, dest, radius=2, suffix=""):
         in_xrange = (x > 0) and (x < img_w)
         in_yrange = (y > 0) and (y < img_h)
         if in_xrange and in_yrange:
+            # found the pt that is in range of radius 
             in_radius_xrange = [
                 int(x) + i for i in range(1, radius)] + [int(x) - i for i in range(1, radius)]
             in_radius_yrange = [
