@@ -31,5 +31,3 @@ def train(*args):
     pass
 
 
-if __name__ == "__main__":
-    model = load_model("auto_encoder",100, batch_size=20)

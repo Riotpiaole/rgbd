@@ -69,7 +69,7 @@ class data_model(object):
         self.trained_weight_path = os.path.join(
             self.weight_path, "%s.h5" %
             self.model_name)
-        print(white_bk)
+        
         self.white_bk = white_bk
 
         # image with max and min with rgb as 0 to 255
@@ -265,9 +265,7 @@ class data_model(object):
         
         if func: result = func(self , X )
         
-        result = self.model.predict(X)
-        result = image.array_to_img(rever_norm(result)[0])
-        result = pil_to_cv2Img( result )
+        result = self.predicts(X,rever_norm)
 
         X , y = rever_norm(X).astype(np.uint8)[0] , rever_norm(y).astype(np.uint8)[0]
         X , y = rgb_to_bgr(X) , rgb_to_bgr(y) 
@@ -277,10 +275,16 @@ class data_model(object):
             return [meshed] , [ "Input::Label::Prediction"]
 
         return [X , y , result] , [ 'Input' , 'SupposeOutput' , 'predictedResult ']
-        
-    def demo(self,dataset_name , save=False, show=False):
+    
+    def predicts(self, X , rever_norm): 
+        result = self.model.predict(X)
+        result = image.array_to_img(rever_norm(result)[0])
+        result = pil_to_cv2Img(result)
+        return result
+
+    def demo(self,dataset_name , save=False, show=False , imgs = False):
         ''' Demoing the result of prediction in Input,GroundTruth,Prediction'''
-        if not ( save or show ): raise ValueError("You are not doing anything")
+        if not ( save or show  or imgs): raise ValueError("You are not doing anything")
         config = self.configs.process(dataset_name)
         suffix = "black"
         if self.white_bk: # check the background color images
@@ -307,23 +311,22 @@ class data_model(object):
                     target_dir,
                     includeInputPath=True,
                     ext='png'), key=alphanum_key)
-
-        for train , target in tqdm(
-            zip(train_files , target_files),
-                    total=len(train_files),
-                    unit="image",
-                    leave=False):
-            X , y = vectorized_read_img(train) , vectorized_read_img(target) 
+        for (idx ,( train , target)) in enumerate(
+            tqdm(
+                zip(train_files , target_files),
+                        total=len(train_files),
+                        unit="image",
+                        leave=False)):
+            X , y = vectorized_read_img(train,unit_vec=True) , vectorized_read_img(target, unit_vec=True) 
             # the images must be in (1 , 256, 256 ,3)
-            img , names = self.predict(
-                np.array([X]),
-                np.array([y]))
+            img , names = self.predict(X,y, meshed=not imgs)
             # output is (256 , 768, 3)
             if save: video.write(img[0])
             if show: showImageSet(img , names)
+            if imgs: cv2.imwrite(data_dir+"/prediction/%s.png" % idx ,  img[len(img) -1 ] )
         
         if save: video.release()
-
+        
 
 if __name__ == "__main__":
     test_model = data_model("Files", "Name")

@@ -478,6 +478,16 @@ def multi_process_wrapper(iterable):
         return inner_wrapper
     return wrapper
 
+def data_whiten(data,fudge=1e-18):
+    U, s, Vt = np.linalg.svd(X, full_matrices=False)
+
+    # U and Vt are the singular matrices, and s contains the singular values.
+    # Since the rows of both U and Vt are orthonormal vectors, then U * Vt
+    # will be white
+    X_white = np.dot(U, Vt)
+    return X_white
+
+    
 
 
 
@@ -552,15 +562,19 @@ def extract_patches(X, patch_size):
     return list_X
 
 
-def vectorized_read_img(img_dir, neg_norm=False):
+def vectorized_read_img(img_dir, neg_norm=False , unit_vec=False):
+    '''Reading pictures and normalizes in neither range of [0 , 1] or [-1 , 1]'''
     func_normal = normalization
     if neg_norm:
         func_normal = tanh_normalization
-    return func_normal(
+    result = func_normal(
         read_img(
             img_dir,
             (256, 256, 3)
         ), 255.0, 0.0)
+    if unit_vec: # convert (h,w,3) to (1,h,w,3)
+        return np.array([result])
+    return result
 
 
 def plot_generated_batch(

@@ -1,5 +1,7 @@
 from utils import ( 
-    check_folders
+    check_folders,
+    showImageSet,
+    convert_depth_2_rgb
 )
 
 import os 
@@ -17,7 +19,9 @@ def test_check_folder():
     
 
 if __name__ == "__main__":
-    data = np.load ("./data/ImgSeq_Po_01/front_back_depth.npy")
-    print(len(data))
+    data = np.load ("./data/ImgSeq_Liang_01black/images.npy")
+    print(len(data[0]))
     for (front , back) in data:
-        print(front.shape , back.shape)
+        # front , back = convert_depth_2_rgb(front),\
+        #     convert_depth_2_rgb(back)
+        showImageSet([front , back] , ["front" , "back"])

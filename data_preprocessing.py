@@ -151,6 +151,7 @@ class DataPreprocessor():
             # ===============================================================
 
             #  re-do unprojection for predicting the images
+            tmp_mask1 = mask1[:].copy()
             mask1 = np.dstack((mask1, mask1, mask1)).astype(np.uint8)
             mask2 = np.dstack((mask2, mask2, mask2)).astype(np.uint8)
             mask3 = np.dstack((mask3, mask3, mask3)).astype(np.uint8)
@@ -231,6 +232,7 @@ class DataPreprocessor():
             depth_reproj[ mask_reproj == 0 ] = 0
             depth_reproj = np.dsplit(depth_reproj,3)[0]
             depth_reproj = depth_reproj.reshape ( (240,320))
+            image_cam1_depth[ tmp_mask1 == 0] = 0
             self.front_back_depth_map.append(
                 (image_cam1_depth , depth_reproj)
             )
@@ -534,7 +536,7 @@ class DataPreprocessor():
 
 
 if __name__ == "__main__":
-    config = config("ImgSeq_Po_01")
+    config = config("ImgSeq_Liang_01")
     demo = DataPreprocessor(config, debug_mode=False)
     demo.load_rgbd_imgs()
     demo.load_data()
