@@ -2,7 +2,7 @@ import os
 import numpy as np
 from utils import multi_threads_wrapper
 # Folder of all the images Non changing data
-strVideoFolder = "/Users/rockliang/Documents/Research/VISION/RGBD/unity-multiview/data"
+strVideoFolder = "./unity-multiview/data"
 strFilterFolder = "./data"
 
 # calibration parameters for image filtering
@@ -106,7 +106,7 @@ class config(object):
 class streams_config(object):
     def __init__(self):
         self.all_datasets = {}
-        self.total_imgs = 0 
+        self.total_imgs = 0
         for folder in calibs.keys():
             temp = config(folder)
             self.total_imgs += temp.num_images
