@@ -61,15 +61,15 @@ class data_model(object):
         self.configs = streams_config()
         self.nb_epochs = epochs
         self.img_shape = img_shape
-        
+
         self.read_list_of_imgs = lambda x: np.array(list(map(vectorized_read_img, x)))
         self.weight_path = "../log/" + self.title + "/"
         check_folders(self.weight_path)
-        
+
         self.trained_weight_path = os.path.join(
             self.weight_path, "%s.h5" %
             self.model_name)
-        
+
         self.white_bk = white_bk
 
         # image with max and min with rgb as 0 to 255
@@ -77,20 +77,20 @@ class data_model(object):
         self.min = 0.0
 
         # total number of images through out all of the directories
-        self.total_imgs = self.configs.total_imgs 
+        self.total_imgs = self.configs.total_imgs
 
         self.data = {
             "X": np.array([]),
             "y": np.array([])
         }
-        
+
         self.load_datas(validation_size=validation_size)
 
     def load_datas(self, validation_size=.2):
         suffix = "black"
         if self.white_bk:
             suffix = ""
-        
+
         print("--------------------------------------------------------------------------------")
         for config in  self.configs.to_list:
             self.load_data(config.strFolderName + suffix)
@@ -102,10 +102,10 @@ class data_model(object):
             'X': np.array(self.data['X'][:num_of_sample]),
             'y': np.array(self.data['y'][:num_of_sample])
         }
-        
+
         self.data['X'] = np.array(self.data['X'][num_of_sample:])
         self.data['y'] = np.array(self.data['y'][num_of_sample:])
-        
+
         # size references
         self.num_train, self.num_val = len(
             self.data['X']), len(
@@ -119,11 +119,11 @@ class data_model(object):
         data_dir = os.path.join("../data/", data_set)
         train_dir, target_dir = os.path.join(data_dir + "/train"), \
             os.path.join(data_dir + "/target")
-        
+
         # load all of the images
         train_files , target_files =sorted(
                 listfiles_nohidden(
-                    train_dir, 
+                    train_dir,
                     includeInputPath=True,
                     ext='png'), key=alphanum_key) ,\
             sorted(
@@ -131,7 +131,7 @@ class data_model(object):
                     target_dir,
                     includeInputPath=True,
                     ext='png'), key=alphanum_key)
-        
+
 
         self.data["X"] = np.append(self.data["X"], train_files)
         self.data["y"] = np.append(self.data["y"], target_files)
@@ -140,9 +140,7 @@ class data_model(object):
             data_set,
             round(
                 self.data["X"].shape[0]
-                / self.total_imgs * 100, 2)
-        )
-        )
+                / self.total_imgs * 100, 2)))
 
     def get_data(self, index):
         return self.data['X'][index], self.data['y'][index]
@@ -195,7 +193,7 @@ class data_model(object):
                     self.num_val, batch_size, replace=False)
                 yield self.read_list_of_imgs(self.validation['X'][idx]),\
                     self.read_list_of_imgs(self.validation['y'][idx])
-    
+
 
 
     def build(self):
@@ -262,21 +260,21 @@ class data_model(object):
         rever_norm = inverse_normalization
         if self.reverse_norm:
             rever_norm = tanh_inverse_normalization
-        
+
         if func: result = func(self , X )
-        
+
         result = self.predicts(X,rever_norm)
 
         X , y = rever_norm(X).astype(np.uint8)[0] , rever_norm(y).astype(np.uint8)[0]
-        X , y = rgb_to_bgr(X) , rgb_to_bgr(y) 
+        X , y = rgb_to_bgr(X) , rgb_to_bgr(y)
 
         if meshed:
             meshed = np.hstack((X,y, result ))
             return [meshed] , [ "Input::Label::Prediction"]
 
         return [X , y , result] , [ 'Input' , 'SupposeOutput' , 'predictedResult ']
-    
-    def predicts(self, X , rever_norm): 
+
+    def predicts(self, X , rever_norm):
         result = self.model.predict(X)
         result = image.array_to_img(rever_norm(result)[0])
         result = pil_to_cv2Img(result)
@@ -290,20 +288,20 @@ class data_model(object):
         if self.white_bk: # check the background color images
             suffix = ""
 
-        if save: 
+        if save:
             video_name = os.path.join(self.weight_path,dataset_name+".avi")
             print("Saving the video to ",video_name)
             fourcc = cv2.VideoWriter_fourcc(*'MJPG')
             video = cv2.VideoWriter(video_name , fourcc , 60 ,(768 ,256), True)
- 
+
         data_dir = os.path.join("../data/", config.strFolderName + suffix)
         train_dir, target_dir = os.path.join(data_dir + "/train"), \
             os.path.join(data_dir + "/target")
-        
+
         # load all of the images
         train_files , target_files =sorted(
                 listfiles_nohidden(
-                    train_dir, 
+                    train_dir,
                     includeInputPath=True,
                     ext='png'), key=alphanum_key) ,\
             sorted(
@@ -317,16 +315,16 @@ class data_model(object):
                         total=len(train_files),
                         unit="image",
                         leave=False)):
-            X , y = vectorized_read_img(train,unit_vec=True) , vectorized_read_img(target, unit_vec=True) 
+            X , y = vectorized_read_img(train,unit_vec=True) , vectorized_read_img(target, unit_vec=True)
             # the images must be in (1 , 256, 256 ,3)
             img , names = self.predict(X,y, meshed=not imgs)
             # output is (256 , 768, 3)
             if save: video.write(img[0])
             if show: showImageSet(img , names)
             if imgs: cv2.imwrite(data_dir+"/prediction/%s.png" % idx ,  img[len(img) -1 ] )
-        
+
         if save: video.release()
-        
+
 
 if __name__ == "__main__":
     test_model = data_model("Files", "Name")

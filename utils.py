@@ -45,8 +45,8 @@ def image_crop(mask):
     pass
 
 def pil_to_cv2Img(image):
-    # convert to np array 
-    img_array = np.array(image.convert('RGB')) 
+    # convert to np array
+    img_array = np.array(image.convert('RGB'))
     cv_img = img_array[: , : , ::-1].copy()
     return cv_img
 
@@ -230,7 +230,7 @@ def timeit(log_info=None, flag=False):
 
 def create_folder(indx, folder_path, verbose=False,save=False):
     '''Recursive function take number of / tag and created the folders if not found ...'''
-    
+
     strRecurPath = "/".join(folder_path[:indx])
     if indx == 1:  # reach ../sth
         if not os.path.exists(strRecurPath):
@@ -241,7 +241,7 @@ def create_folder(indx, folder_path, verbose=False,save=False):
             if save: os.mkdir(strRecurPath)
         else:
             if verbose:
-                print("Folder {} found Skipping.".format(strRecurPath)) 
+                print("Folder {} found Skipping.".format(strRecurPath))
         return
     create_folder(indx-1 ,  folder_path )
     if not os.path.exists(strRecurPath):
@@ -252,11 +252,11 @@ def create_folder(indx, folder_path, verbose=False,save=False):
         if save: os.mkdir(strRecurPath)
     else:
         if verbose:
-            print("Folder {} found Skipping.".format(strRecurPath)) 
+            print("Folder {} found Skipping.".format(strRecurPath))
     return
 
-    
-       
+
+
 
 def check_folders(folder_paths,verbose=False,save=True):
     '''check_folders
@@ -279,7 +279,7 @@ def check_folders(folder_paths,verbose=False,save=True):
     Folder model found Skipping.
     ```
     '''
-    
+
     path_split = folder_paths.split("/")
     path_split.remove("") # avoid last char end with /
     size = len(path_split)
@@ -339,7 +339,7 @@ def inverse_normalization(arr, arr_max=255, arr_min=0):
     return result.astype(np.uint8)
 
 
-def tanh_normalization(arr, arr_max=255, arr_min=0):  # normalized between 0 and 1
+def tanh_normalization(arr, arr_max=255, arr_min=0):  # normalized between -1 and 1
     result = (2 * (arr - arr_min) / (arr_max - arr_min)) - 1
     return result.astype(np.float64)
 
@@ -435,7 +435,7 @@ def multi_process_wrapper(iterable):
     '''multi_process_wrapper
         Wrapping given function and a constant variable for CPUs wise
         multi-processingself.
-    
+
     Arguments:
         iterable: iterable chunkable array
         func: function that will be execute each iteration
@@ -448,7 +448,7 @@ def multi_process_wrapper(iterable):
     ...     print(arg , iteration)
     >>> dosomething(10)
     10 1
-    10 2 
+    10 2
     10 3
 
     >>> # generate 10 process for executing the soemthing_over_array
@@ -458,7 +458,7 @@ def multi_process_wrapper(iterable):
     ...     print( iteartion)
     >>> something_over_array()
     10
-    
+
     '''
     def wrapper(func):
         def inner_wrapper(*args, **kwargs):
@@ -487,7 +487,7 @@ def data_whiten(data,fudge=1e-18):
     X_white = np.dot(U, Vt)
     return X_white
 
-    
+
 
 
 
@@ -731,7 +731,7 @@ def reproject_ptcloud(index, src, dest, radius=2, suffix=""):
         in_xrange = (x > 0) and (x < img_w)
         in_yrange = (y > 0) and (y < img_h)
         if in_xrange and in_yrange:
-            # found the pt that is in range of radius 
+            # found the pt that is in range of radius
             in_radius_xrange = [
                 int(x) + i for i in range(1, radius)] + [int(x) - i for i in range(1, radius)]
             in_radius_yrange = [
