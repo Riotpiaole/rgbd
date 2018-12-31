@@ -125,7 +125,7 @@ class RGBDMultiView(app.Canvas):
         self.quaternion = Quaternion() # for mouse movement
 
         self.cam_params = GetCameraParameters(sensor_type, sensor_scale)
-  
+
         self.fov = 30
         ps = self.pixel_scale
         self.playbackSpeed = 1
@@ -237,9 +237,9 @@ class RGBDMultiView(app.Canvas):
             elif event.text == 'r': self.rotZ += self.rshift
             elif event.text == 'v': self.rotZ -= self.rshift
             self.rotMat = rotationMatrix((self.rotX, self.rotY, self.rotZ))
-            
+
         ### reset camera to original default orientation
-        if event.text == 'x': 
+        if event.text == 'x':
             self.print_camera_view()
             self.default_camera_view()
 
@@ -284,7 +284,7 @@ class RGBDMultiView(app.Canvas):
 
         Arguments:
             frame_n: int obtain the frame number for the stream
-        
+
         Return:
             frame_data: array contain three camera and contain [numVertice , xyz , rgb]
         '''
@@ -302,41 +302,41 @@ class RGBDMultiView(app.Canvas):
             frame_data[s.name] = [nVertices, xyz, rgb]
 
         return frame_data
-    
+
     def load_frame_to_stl(self, frame_n):
         '''
         load_frame_data
 
         Arguments:
             frame_n: int obtain the frame number for the stream
-        
+
         Return:
             frame_data: array contain three camera and contain [numVertice , xyz , rgb]
         '''
         data = np.zeros(6,dtype=mesh.Mesh.dtype)
-        
+
         frame_data = {}
-        
-        xyzpcd , rgbpcd = [] , [] 
-    
+
+        xyzpcd , rgbpcd = [] , []
+
         for  i , s in enumerate(self.sensor_props):
             depthImg = cv2.imread(s.imgs_depth[frame_n], -1) ## load frames and compute point cloud
             clrImg = cv2.imread(s.imgs_color[frame_n], -1)
             ptcloud, nVertices = image_fusion(self.cam_params, depthImg, clrImg)
-            
+
             transformedPtcloud = transform_pointcloud_vectorized(ptcloud, s.rotationMatrix(), s.translationMatrix())
             xyz, rgb = np.hsplit(transformedPtcloud, 2)
-            
-            
+
+
             xyzpcd.insert(i, xyz)
             rgbpcd.insert(i, rgb )
             ## TODO: extra post-processing to convert points close to the camera to a specific color
-            
+
             frame_data[s.name] = [nVertices, xyz, rgb]
-        
+
         rgbpcd = np.vstack((rgbpcd[0],rgbpcd[1],rgbpcd[2]))
         xyzpcd = np.vstack((xyzpcd[0],xyzpcd[1],xyzpcd[2]))
-        
+
         print(rgbpcd.shape,xyzpcd.shape)
 
         return xyzpcd , rgbpcd , frame_data
@@ -354,7 +354,7 @@ class RGBDMultiView(app.Canvas):
                             ('a_fg_color', np.float32, 4),
                             ('a_size', np.float32, 1)])
             data['a_position'] = np.array(xyz/self.scaleFactor)
-            data['a_bg_color'] = np.c_[rgb/255, np.ones(nVertices)] # make sure rgb is between [0,1] and gotta append an extra one to each row for the alpha value 
+            data['a_bg_color'] = np.c_[rgb/255, np.ones(nVertices)] # make sure rgb is between [0,1] and gotta append an extra one to each row for the alpha value
             data['a_fg_color'] = 0, 0, 0, 1
             data['a_size'] = 4
 
@@ -381,26 +381,26 @@ class RGBDMultiView(app.Canvas):
         print(self.nframe_total)
         self.apply_zoom()
         self.set_frame(0)
-    
+
 
 if __name__ == '__main__':
     strTopFolder = "./data/"
-    strFolderName = "test01"
+    strFolderName = "ImgSeq_Liang_01"
     strMultiviewFolder = os.path.join(strTopFolder, strFolderName)
     strPosesFile = os.path.join(strMultiviewFolder, "unity3d_poses.txt")
 
     ## read the poses file at strTopFolder and use that to create the RGBDSensorProps
     sensor_props = ReadManualCalibPoses(strPosesFile)
-    
+
 
     # for each cameras
-    for s in sensor_props: 
+    for s in sensor_props:
         s.load_image_files(strMultiviewFolder)
-    
+
     viewer = RGBDMultiView(sensor_type="OrbbecAstra", sensor_scale=0.5)
     viewer.set_multiview_source( sensor_props )
     xyz , rgb ,  data = viewer.load_frame_to_stl(0)
-    
+
 
     viewer.show()
     app.run()
